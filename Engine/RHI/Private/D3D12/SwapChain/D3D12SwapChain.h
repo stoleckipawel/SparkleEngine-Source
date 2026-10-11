@@ -1,0 +1,96 @@
+#pragma once
+
+#ifndef WIN32_LEAN_AND_MEAN
+  #define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+  #define NOMINMAX
+#endif
+#include <Windows.h>
+#include <d3d12.h>
+#include <dxgi1_6.h>
+#include <wrl/client.h>
+
+#include "Frame/RhiFrameConstants.h"
+#include "D3D12/Descriptors/D3D12DescriptorHandle.h"
+#include "Device/RenderHardwareInterface.h"
+#include "Presentation/RhiPresentationDefaults.h"
+
+#include <vector>
+
+using Microsoft::WRL::ComPtr;
+
+class Window;
+class D3D12DescriptorHeapManager;
+class D3D12Rhi;
+
+class D3D12SwapChain final
+{
+public:
+	D3D12SwapChain(D3D12Rhi& rhi, Window& window, D3D12DescriptorHeapManager& descriptorHeapManager, PixelFormat backBufferFormat, const RhiPresentationConfiguration& presentationConfiguration);
+
+	~D3D12SwapChain() noexcept;
+
+	D3D12SwapChain(const D3D12SwapChain&) = delete;
+	D3D12SwapChain& operator=(const D3D12SwapChain&) = delete;
+	D3D12SwapChain(D3D12SwapChain&&) = delete;
+	D3D12SwapChain& operator=(D3D12SwapChain&&) = delete;
+
+	void Present();
+	void WaitForPresentationSlot() const noexcept;
+
+	void Resize();
+
+	D3D12_CPU_DESCRIPTOR_HANDLE GetCPUHandle(UINT index) const { return m_rtvHandles[index].GetCPU(); }
+
+	D3D12_CPU_DESCRIPTOR_HANDLE GetCPUHandle() const { return m_rtvHandles[m_currentBackBufferIndex].GetCPU(); }
+
+	ID3D12Resource* GetCurrentResource() const noexcept { return m_buffers[m_currentBackBufferIndex].Get(); }
+
+	UINT GetCurrentBackBufferIndex() const noexcept { return m_currentBackBufferIndex; }
+
+	UINT GetBackBufferCount() const noexcept { return m_backBufferCount; }
+
+	UINT GetMaximumFramesInFlight() const noexcept { return m_maximumFramesInFlight; }
+
+	void UpdateCurrentBackBufferIndex() { m_currentBackBufferIndex = GetPresentationInterface()->GetCurrentBackBufferIndex(); }
+
+	RhiViewport GetDefaultViewport() const;
+
+	RhiRect GetDefaultScissorRect() const;
+
+	PixelFormat GetBackBufferFormat() const { return m_backBufferFormat; }
+
+	UINT GetAllowTearingFlag() const;
+
+	UINT GetFrameLatencyWaitableFlag() const;
+
+	UINT ComputeSwapChainFlags() const;
+
+	Window& GetHostWindow() noexcept { return *m_window; }
+
+private:
+	UINT GetWindowWidth() const noexcept;
+	UINT GetWindowHeight() const noexcept;
+	bool HasValidWindowSize() const noexcept;
+	void ResizeBuffersToWindow();
+	void CreateRenderTargetViews();
+	void AllocateHandles();
+	void Create();
+	void ReleaseBuffers();
+	void ReleaseRenderTargetHandles() noexcept;
+	IDXGISwapChain3* GetPresentationInterface() const noexcept;
+
+	D3D12Rhi& m_rhi;
+	UINT m_currentBackBufferIndex = 0;
+	UINT m_backBufferCount = 0;
+	UINT m_maximumFramesInFlight = 0;
+	ComPtr<IDXGISwapChain3> m_swapChain = nullptr;
+	ComPtr<IDXGISwapChain3> m_externalSwapChain = nullptr;
+	std::vector<ComPtr<ID3D12Resource2>> m_buffers;
+	std::vector<D3D12DescriptorHandle> m_rtvHandles;
+	PixelFormat m_backBufferFormat = PixelFormat::Unknown;
+	HANDLE m_waitableObject = nullptr;
+	Window* m_window = nullptr;
+	D3D12DescriptorHeapManager* m_descriptorHeapManager = nullptr;
+};

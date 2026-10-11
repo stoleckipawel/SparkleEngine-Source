@@ -1,0 +1,166 @@
+#include "LauncherOperationRequestMapping.h"
+
+#include <QtCore/QRegularExpression>
+
+#include <algorithm>
+
+namespace SparkleLauncher::LauncherOperationRequestMapping
+{
+	static std::vector<std::string> SplitList(const QString& text)
+	{
+		std::vector<std::string> values;
+		for (const QString& part : text.split(QRegularExpression("[,;\\n]"), Qt::SkipEmptyParts))
+		{
+			const QString trimmed = part.trimmed();
+			if (!trimmed.isEmpty())
+			{
+				values.push_back(trimmed.toStdString());
+			}
+		}
+		return values;
+	}
+
+	static CleanScope ParseCleanScope(const QString& text)
+	{
+		CleanScope scope = CleanScope::CookedOutputs;
+		TryParseCleanScope(text.toStdString(), scope);
+		return scope;
+	}
+
+	static std::vector<BuildWorkspaceScope> ParseBuildScopes(const QString& text)
+	{
+		std::vector<BuildWorkspaceScope> scopes;
+		for (const std::string& value : SplitList(text))
+		{
+			BuildWorkspaceScope scope = BuildWorkspaceScope::Editor;
+			if (TryParseBuildWorkspaceScope(value, scope) && std::find(scopes.begin(), scopes.end(), scope) == scopes.end())
+			{
+				scopes.push_back(scope);
+			}
+		}
+		return scopes;
+	}
+
+	static std::vector<CookWorkspaceScope> ParseCookScopes(const QString& text)
+	{
+		std::vector<CookWorkspaceScope> scopes;
+		for (const std::string& value : SplitList(text))
+		{
+			CookWorkspaceScope scope = CookWorkspaceScope::Shaders;
+			if (TryParseCookWorkspaceScope(value, scope) && std::find(scopes.begin(), scopes.end(), scope) == scopes.end())
+			{
+				scopes.push_back(scope);
+			}
+		}
+		return scopes;
+	}
+
+	bool RequestsLauncherRebuild(const LauncherOperationRequest& request)
+	{
+		if (request.OperationId == "launcher.build.self")
+		{
+			return true;
+		}
+		if (request.OperationId != "workspace.build")
+		{
+			return false;
+		}
+
+		const std::vector<BuildWorkspaceScope> scopes = ParseBuildScopes(request.BuildScopes);
+		return std::find(scopes.begin(), scopes.end(), BuildWorkspaceScope::Launcher) != scopes.end();
+	}
+
+	BuildWorkspaceOperationRequest BuildWorkspace(const LauncherOperationRequest& request)
+	{
+		BuildWorkspaceOperationRequest mapped;
+		WorkspaceIde workspaceIde = WorkspaceIde::VisualStudio;
+		TryParseWorkspaceIde(request.WorkspaceIde.toStdString(), workspaceIde);
+		WorkspaceCompiler workspaceCompiler = WorkspaceCompiler::Msvc;
+		TryParseWorkspaceCompiler(request.WorkspaceCompiler.toStdString(), workspaceCompiler);
+		mapped.RepositoryRoot = request.RepositoryRoot;
+		mapped.ContentId = request.ContentId.toStdString();
+		mapped.EditorProfile = request.EditorProfile.toStdString();
+		mapped.GameProfile = request.GameProfile.toStdString();
+		mapped.PreferredIde = workspaceIde;
+		mapped.Compiler = workspaceCompiler;
+		mapped.SelectedScopes = ParseBuildScopes(request.BuildScopes);
+		mapped.SelectedTargets = SplitList(request.SelectedTargets);
+		mapped.SourceDependencyId = request.SourceDependencyId.toStdString();
+		mapped.HostToolId = request.HostToolId.toStdString();
+		mapped.ForceConfigure = request.ForceConfigure;
+		return mapped;
+	}
+
+	LevelOperationRequest Levels(const LauncherOperationRequest& request)
+	{
+		LevelOperationRequest mapped;
+		mapped.RepositoryRoot = request.RepositoryRoot;
+		mapped.ContentId = request.ContentId.toStdString();
+		mapped.RequestedLevelIds = SplitList(request.RequestedLevelIds);
+		return mapped;
+	}
+
+	LevelRunOperationRequest LevelRun(const LauncherOperationRequest& request)
+	{
+		LevelRunOperationRequest mapped;
+		mapped.RepositoryRoot = request.RepositoryRoot;
+		mapped.ContentId = request.ContentId.toStdString();
+		mapped.RunMode = request.RunMode == "game" ? LevelRunMode::Game : LevelRunMode::Editor;
+		mapped.ProductProfile = mapped.RunMode == LevelRunMode::Game ? request.GameProfile.toStdString() : request.EditorProfile.toStdString();
+		const std::vector<std::string> requestedLevels = SplitList(request.RequestedLevelIds);
+		if (!requestedLevels.empty())
+		{
+			mapped.LevelId = requestedLevels.front();
+		}
+		mapped.GraphicsApi = request.GraphicsApi.toStdString();
+		mapped.CaptureProvider = request.CaptureProvider;
+		return mapped;
+	}
+
+	CookOperationRequest Cook(const LauncherOperationRequest& request)
+	{
+		CookOperationRequest mapped;
+		mapped.RepositoryRoot = request.RepositoryRoot;
+		mapped.ContentId = request.ContentId.toStdString();
+		mapped.GameProfile = request.GameProfile.toStdString();
+		mapped.Mode = request.ForceRecook ? CookMode::Force : CookMode::Incremental;
+		mapped.ForceRecookConfirmed = request.ConfirmForceRecook;
+		mapped.SelectedScopes = ParseCookScopes(request.CookScopes);
+		mapped.ShaderBackend = request.ShaderBackend.toStdString();
+		mapped.ShaderEnableDebugInfo = request.ShaderEnableDebugInfo;
+		mapped.ShaderEnableOptimizations = request.ShaderEnableOptimizations;
+		mapped.ShaderWarningsAsErrors = request.ShaderWarningsAsErrors;
+		mapped.ShaderStripDebugInfo = request.ShaderStripDebugInfo;
+		return mapped;
+	}
+
+	MaintenanceOperationRequest Maintenance(const LauncherOperationRequest& request)
+	{
+		MaintenanceOperationRequest mapped;
+		mapped.RepositoryRoot = request.RepositoryRoot;
+		mapped.ContentId = request.ContentId.toStdString();
+		mapped.EditorProfile = request.EditorProfile.toStdString();
+		mapped.RequestedCleanScope = ParseCleanScope(request.CleanScope);
+		for (const QString& part : request.CleanScope.split(QRegularExpression("[,;\\n]"), Qt::SkipEmptyParts))
+		{
+			mapped.RequestedCleanScopes.push_back(ParseCleanScope(part.trimmed()));
+		}
+		if (mapped.RequestedCleanScopes.empty())
+		{
+			mapped.RequestedCleanScopes.push_back(CleanScope::CookedOutputs);
+		}
+		for (const LauncherCleanTarget& target : request.CleanTargets)
+		{
+			mapped.RequestedCleanTargets.push_back(MaintenanceCleanPathSpec{.DisplayName = target.DisplayName.toStdString(), .Path = target.Path.toStdString(), .Detail = target.Detail.toStdString()});
+		}
+		for (const QString& path : request.PreservedPaths)
+		{
+			if (!path.trimmed().isEmpty())
+			{
+				mapped.PreservedPaths.push_back(path.toStdString());
+			}
+		}
+		mapped.DestructiveActionConfirmed = request.ConfirmClean;
+		return mapped;
+	}
+}

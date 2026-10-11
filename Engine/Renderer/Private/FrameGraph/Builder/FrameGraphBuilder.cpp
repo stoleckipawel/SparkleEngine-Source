@@ -1,0 +1,68 @@
+#include "PCH.h"
+#include "FrameGraph/Builder/FrameGraphBuilder.h"
+
+FrameGraphBuilder::FrameGraphBuilder(FrameGraph& frameGraph, const RenderPassRuntimeCache& renderPassRuntimeCache) noexcept :
+    m_frameGraph(frameGraph),
+    m_renderPassRuntimeCache(renderPassRuntimeCache)
+{
+}
+
+FrameGraphTextureHandle FrameGraphBuilder::ImportBackBuffer(const FrameGraphTextureDesc& desc, ResourceState initialState) noexcept
+{
+	return m_frameGraph.ImportBackBuffer(desc, initialState);
+}
+
+FrameGraphTextureHandle FrameGraphBuilder::ReservePersistentTexture(const FrameGraphTextureDesc& desc, ResourceState initialState) noexcept
+{
+	return m_frameGraph.ReservePersistentTexture(desc, initialState);
+}
+
+FrameGraphTextureHandle FrameGraphBuilder::CreateTexture(const FrameGraphTextureDesc& desc) noexcept
+{
+	return m_frameGraph.CreateTexture(desc);
+}
+
+FrameGraphTextureHistory FrameGraphBuilder::CreateTextureHistory(const FrameGraphTextureDesc& desc) noexcept
+{
+	return m_frameGraph.CreateTextureHistory(desc);
+}
+
+FrameGraphBufferHandle FrameGraphBuilder::ReservePersistentBuffer(const FrameGraphBufferDesc& desc, ResourceState initialState) noexcept
+{
+	return m_frameGraph.ReservePersistentBuffer(desc, initialState);
+}
+
+FrameGraphBufferHandle FrameGraphBuilder::CreateBuffer(const FrameGraphBufferDesc& desc) noexcept
+{
+	return m_frameGraph.CreateBuffer(desc);
+}
+
+FrameGraphAccelerationStructureHandle FrameGraphBuilder::ReservePersistentAccelerationStructure(std::string_view name, ResourceState initialState) noexcept
+{
+	return m_frameGraph.ReservePersistentAccelerationStructure(name, initialState);
+}
+
+void FrameGraphBuilder::ExportTexture(FrameGraphTextureHandle handle, std::string_view name) noexcept
+{
+	m_frameGraph.ExportTexture(handle, name);
+}
+
+ShaderAccelerationStructure FrameGraphBuilder::CreateAccelerationStructureBinding(FrameGraphAccelerationStructureHandle handle) const noexcept
+{
+	return m_frameGraph.CreateAccelerationStructureBinding(handle);
+}
+
+ShaderRenderTarget FrameGraphBuilder::CreateRenderTarget(FrameGraphTextureHandle handle, FrameGraphAttachmentLoadAction load, FrameGraphAttachmentStoreAction store) const noexcept
+{
+	ShaderRenderTarget result;
+	result = FrameGraphAttachmentBinding{.Handle = handle, .Load = load, .Store = store};
+	return result;
+}
+
+ShaderDepthTarget FrameGraphBuilder::CreateDepthTarget(FrameGraphTextureHandle handle, FrameGraphAttachmentLoadAction load, FrameGraphAttachmentStoreAction store, FrameGraphDepthStencilAccess access)
+    const noexcept
+{
+	ShaderDepthTarget result;
+	result = FrameGraphAttachmentBinding{.Handle = handle, .Load = load, .Store = store, .DepthStencilAccess = access};
+	return result;
+}

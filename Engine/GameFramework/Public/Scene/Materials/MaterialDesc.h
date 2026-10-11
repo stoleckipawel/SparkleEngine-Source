@@ -1,0 +1,39 @@
+#pragma once
+
+#include "Core/Public/Assets/TextureGroup.h"
+#include "GameFramework/Public/Assets/Cooked/CookedTextureReference.h"
+#include "GameFramework/Public/GameFrameworkAPI.h"
+
+#include <DirectXMath.h>
+#include <cstdint>
+#include <string>
+#include <vector>
+
+enum class AlphaMode : std::uint32_t
+{
+	Opaque = 0,
+	Mask = 1,
+	Blend = 2,
+};
+
+struct SPARKLE_ENGINE_API MaterialDesc
+{
+	std::string name;
+
+	DirectX::XMFLOAT4 baseColor = {1.0f, 1.0f, 1.0f, 1.0f};
+	float metallic = 0.0f;
+	float roughness = 0.5f;
+	float f0 = 0.04f;
+	DirectX::XMFLOAT3 subsurfaceColor = {0.0f, 0.0f, 0.0f};
+	float subsurfaceStrength = 0.0f;
+	DirectX::XMFLOAT3 emissiveColor = {0.0f, 0.0f, 0.0f};
+	AlphaMode alphaMode = AlphaMode::Opaque;
+	float alphaCutoff = 0.5f;
+	bool doubleSided = false;
+
+	std::vector<Assets::CookedTextureReference> textureReferences;
+
+	void AddTextureReference(Assets::CookedTextureReference textureReference);
+	const Assets::CookedTextureReference* FindTextureReference(TextureGroup textureGroup) const noexcept;
+	bool HasTextureReference(TextureGroup textureGroup) const noexcept;
+};

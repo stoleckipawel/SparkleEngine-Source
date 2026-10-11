@@ -1,0 +1,363 @@
+#include "LauncherSettings.h"
+
+namespace SparkleLauncher
+{
+	static QString NormalizeBuildConfiguration(const QString& configuration)
+	{
+		const QString lowered = configuration.trimmed().toLower();
+		if (lowered == "debug" || lowered.startsWith("debug"))
+		{
+			return "debug";
+		}
+		if (lowered == "shipping" || lowered.startsWith("shipping"))
+		{
+			return "shipping";
+		}
+		return "development";
+	}
+
+	LauncherSettings::LauncherSettings(QObject* parent) :
+	    QObject(parent)
+	{
+	}
+
+	const QString& LauncherSettings::RunMode() const
+	{
+		return m_runMode;
+	}
+
+	const QString& LauncherSettings::BuildConfiguration() const
+	{
+		return m_buildConfiguration;
+	}
+
+	const QString& LauncherSettings::EditorProfile() const
+	{
+		static QString debugProfile = "DebugEditor";
+		static QString developmentProfile = "DevelopmentEditor";
+		static QString shippingProfile = "ShippingEditor";
+		if (m_buildConfiguration == "debug")
+		{
+			return debugProfile;
+		}
+		if (m_buildConfiguration == "shipping")
+		{
+			return shippingProfile;
+		}
+		return developmentProfile;
+	}
+
+	const QString& LauncherSettings::GameProfile() const
+	{
+		static QString debugProfile = "DebugGame";
+		static QString developmentProfile = "DevelopmentGame";
+		static QString shippingProfile = "ShippingGame";
+		if (m_buildConfiguration == "debug")
+		{
+			return debugProfile;
+		}
+		if (m_buildConfiguration == "shipping")
+		{
+			return shippingProfile;
+		}
+		return developmentProfile;
+	}
+
+	const QString& LauncherSettings::WorkspaceIde() const
+	{
+		return m_workspaceIde;
+	}
+
+	const QString& LauncherSettings::WorkspaceCompiler() const
+	{
+		return m_workspaceCompiler;
+	}
+
+	const QString& LauncherSettings::BuildScopes() const
+	{
+		return m_buildScopes;
+	}
+
+	const QString& LauncherSettings::CookScopes() const
+	{
+		return m_cookScopes;
+	}
+
+	const QString& LauncherSettings::SelectedTargets() const
+	{
+		return m_selectedTargets;
+	}
+
+	const QString& LauncherSettings::ShaderBackend() const
+	{
+		return m_shaderBackend;
+	}
+
+	const QString& LauncherSettings::GraphicsApi() const
+	{
+		return m_graphicsApi;
+	}
+
+	ExternalCaptureProvider LauncherSettings::CaptureProvider() const
+	{
+		return m_captureProvider;
+	}
+
+	void LauncherSettings::SetCaptureProvider(const QString& value)
+	{
+		ExternalCaptureProvider provider;
+		if (!TryParseExternalCaptureProvider(value.toStdString(), provider) || provider == m_captureProvider)
+		{
+			return;
+		}
+
+		m_captureProvider = provider;
+		emit SettingsChanged();
+	}
+
+	const QString& LauncherSettings::CleanScope() const
+	{
+		return m_cleanScope;
+	}
+
+	bool LauncherSettings::ShaderEnableDebugInfo() const
+	{
+		return m_shaderEnableDebugInfo;
+	}
+
+	bool LauncherSettings::ShaderEnableOptimizations() const
+	{
+		return m_shaderEnableOptimizations;
+	}
+
+	bool LauncherSettings::ShaderWarningsAsErrors() const
+	{
+		return m_shaderWarningsAsErrors;
+	}
+
+	bool LauncherSettings::ShaderStripDebugInfo() const
+	{
+		return m_shaderStripDebugInfo;
+	}
+
+	bool LauncherSettings::ForceConfigure() const
+	{
+		return m_forceConfigure;
+	}
+
+	bool LauncherSettings::ForceRecook() const
+	{
+		return m_forceRecook;
+	}
+
+	bool LauncherSettings::ConfirmForceRecook() const
+	{
+		return m_confirmForceRecook;
+	}
+
+	bool LauncherSettings::ConfirmClean() const
+	{
+		return m_confirmClean;
+	}
+
+	void LauncherSettings::SetRunMode(const QString& runMode)
+	{
+		const QString normalized = runMode.trimmed().toLower() == "game" ? QStringLiteral("game") : QStringLiteral("editor");
+		if (m_runMode == normalized)
+		{
+			return;
+		}
+
+		m_runMode = normalized;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetBuildConfiguration(const QString& configuration)
+	{
+		const QString normalized = NormalizeBuildConfiguration(configuration);
+		if (m_buildConfiguration == normalized)
+		{
+			return;
+		}
+
+		m_buildConfiguration = normalized;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetEditorProfile(const QString& profileName)
+	{
+		SetBuildConfiguration(profileName);
+	}
+
+	void LauncherSettings::SetGameProfile(const QString& profileName)
+	{
+		SetBuildConfiguration(profileName);
+	}
+
+	void LauncherSettings::SetWorkspaceIde(const QString& ide)
+	{
+		if (m_workspaceIde == ide)
+		{
+			return;
+		}
+
+		m_workspaceIde = ide;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetWorkspaceCompiler(const QString& compiler)
+	{
+		if (m_workspaceCompiler == compiler)
+		{
+			return;
+		}
+
+		m_workspaceCompiler = compiler;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetBuildScopes(const QString& scopes)
+	{
+		if (m_buildScopes == scopes)
+		{
+			return;
+		}
+
+		m_buildScopes = scopes;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetCookScopes(const QString& scopes)
+	{
+		if (m_cookScopes == scopes)
+		{
+			return;
+		}
+
+		m_cookScopes = scopes;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetSelectedTargets(const QString& targets)
+	{
+		if (m_selectedTargets == targets)
+		{
+			return;
+		}
+		m_selectedTargets = targets;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetShaderBackend(const QString& backend)
+	{
+		const QString normalized = backend.trimmed().toLower() == "slang" ? QStringLiteral("slang") : QStringLiteral("dxc");
+		if (m_shaderBackend == normalized)
+		{
+			return;
+		}
+		m_shaderBackend = normalized;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetGraphicsApi(const QString& graphicsApi)
+	{
+		const QString normalized = graphicsApi.trimmed().toLower() == "vulkan" ? QStringLiteral("vulkan") : QStringLiteral("d3d12");
+		if (m_graphicsApi == normalized)
+		{
+			return;
+		}
+		m_graphicsApi = normalized;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetCleanScope(const QString& scope)
+	{
+		if (m_cleanScope == scope)
+		{
+			return;
+		}
+		m_cleanScope = scope;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetShaderEnableDebugInfo(bool enabled)
+	{
+		if (m_shaderEnableDebugInfo == enabled)
+		{
+			return;
+		}
+		m_shaderEnableDebugInfo = enabled;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetShaderEnableOptimizations(bool enabled)
+	{
+		if (m_shaderEnableOptimizations == enabled)
+		{
+			return;
+		}
+		m_shaderEnableOptimizations = enabled;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetShaderWarningsAsErrors(bool enabled)
+	{
+		if (m_shaderWarningsAsErrors == enabled)
+		{
+			return;
+		}
+		m_shaderWarningsAsErrors = enabled;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetShaderStripDebugInfo(bool enabled)
+	{
+		if (m_shaderStripDebugInfo == enabled)
+		{
+			return;
+		}
+		m_shaderStripDebugInfo = enabled;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetForceConfigure(bool enabled)
+	{
+		if (m_forceConfigure == enabled)
+		{
+			return;
+		}
+		m_forceConfigure = enabled;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetForceRecook(bool enabled)
+	{
+		if (m_forceRecook == enabled)
+		{
+			return;
+		}
+		m_forceRecook = enabled;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetConfirmForceRecook(bool enabled)
+	{
+		if (m_confirmForceRecook == enabled)
+		{
+			return;
+		}
+		m_confirmForceRecook = enabled;
+		emit SettingsChanged();
+	}
+
+	void LauncherSettings::SetConfirmClean(bool enabled)
+	{
+		if (m_confirmClean == enabled)
+		{
+			return;
+		}
+		m_confirmClean = enabled;
+		emit SettingsChanged();
+	}
+
+}

@@ -1,0 +1,20 @@
+[Level]
+Name = CesiumMan
+
+[Camera]
+Position = 0.0, 1.5, -3.0
+YawRadians = 0.0
+PitchRadians = 0.0
+FovYDegrees = 60.0
+
+[Lighting]
+DirectionalLight0Direction = 0.42, -0.82, 0.39
+DirectionalLight0IlluminanceLux = 2.35
+DirectionalLight0Color = 1.0, 0.93, 0.82
+DirectionalLight1Direction = -0.24, -0.66, -0.71
+DirectionalLight1IlluminanceLux = 0.2
+DirectionalLight1Color = 0.42, 0.5, 0.72
+DirectionalLight1CastShadow = false
+
+[SceneAssets]
+Asset = CesiumMan/CesiumMan

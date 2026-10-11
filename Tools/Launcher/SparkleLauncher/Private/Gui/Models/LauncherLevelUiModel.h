@@ -1,0 +1,38 @@
+#pragma once
+
+#include <QtCore/QString>
+#include <QtCore/QVector>
+
+namespace SparkleLauncher
+{
+	struct LauncherContentSummary;
+
+	struct LauncherLevelUiEntry final
+	{
+		QString Id;
+		QString DisplayName;
+		QString Description;
+		QString ThumbnailPath;
+		QString Detail;
+		QString Status;
+		QString State;
+		QString SourcePageUrl;
+		QString UnsupportedReason;
+		bool Selected = false;
+		bool SourceReady = false;
+		bool GameSupported = true;
+		bool Ready = false;
+		bool CanSelect = true;
+		bool CanSync = false;
+		bool CanClean = false;
+	};
+
+	struct LauncherLevelUiModel final
+	{
+		bool Loaded = false;
+		QString LoadError;
+		QVector<LauncherLevelUiEntry> Levels;
+
+		static LauncherLevelUiModel Build(const LauncherContentSummary& content);
+	};
+}

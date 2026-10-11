@@ -1,0 +1,86 @@
+########################################################
+# Visual Studio, CMake, and Editor Intermediate Files   #
+########################################################
+# Generated build roots used by this repository.
+# Keep these rules path-based and intentional. Do not ignore folders by generic
+# names everywhere, because this repository contains real source directories such
+# as `Tools/Launcher/SparkleLauncher/Private/Build`.
+/build/
+
+# Generated artifact and package roots introduced by the release architecture.
+/artifacts/
+/dist/
+
+# Showcase source media is acquired explicitly through the launcher. Catalog,
+# level, provenance, and conversion records remain tracked outside these roots.
+/Projects/Showcase/Assets/Meshes/Bistro/
+/Projects/Showcase/Assets/Meshes/SanMiguel/
+/Projects/Showcase/Assets/Meshes/ModernSponza/
+/Projects/Showcase/Assets/Meshes/JungleRuins/
+/Projects/Showcase/Assets/Meshes/LPSHead/Publisher/
+/Projects/Showcase/Assets/Meshes/CornellBox/Publisher/
+/Projects/Showcase/Assets/Meshes/StanfordBunny/Publisher/
+/Projects/Showcase/Assets/Meshes/StanfordDragon/Publisher/
+/Projects/Showcase/Assets/Meshes/AnisotropyBarnLamp/Publisher/
+/Projects/Showcase/Assets/Meshes/SheenCloth/Publisher/
+
+# Keep shader debug include files tracked.
+!Engine/Assets/Shaders/Debug/
+!Engine/Assets/Shaders/Debug/ViewModes.hlsli
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+mono_crash.*
+
+# Editor files
+.history
+.vscode/
+.vscode/*.code-workspace
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+
+# Visual Studio files
+.vs/
+.vs/*
+.vs/.*
+.vs/.vscode/*
+.vs/.vscode/*.code-workspace
+.vs/.vscode/settings.json
+.vs/.vscode/tasks.json
+.vs/.vscode/launch.json
+.vs/.vscode/extensions.json
+
+# Visual Studio versioned local folders
+.vs20*/
+.vs20*/*
+.vs20*/.*
+.vs20*/.vscode/*
+.vs20*/.vscode/*.code-workspace
+.vs20*/.vscode/settings.json
+.vs20*/.vscode/tasks.json
+.vs20*/.vscode/launch.json
+.vs20*/.vscode/extensions.json
+
+# Python bytecode, environments, and tool caches.
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Operating-system metadata.
+.DS_Store
+Desktop.ini
+Thumbs.db
+
+# User-selected classic Sponza publisher acquisition (recipe stays tracked).
+/Projects/Showcase/Assets/Meshes/Sponza/Publisher/

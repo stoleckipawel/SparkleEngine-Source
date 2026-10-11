@@ -1,0 +1,161 @@
+#include "Vulkan/VulkanPCH.h"
+
+#include "Vulkan/Commands/VulkanRenderCommandList.h"
+
+#include "Vulkan/Memory/VulkanGpuMemoryAllocator.h"
+#include "Vulkan/Pipeline/VulkanPipeline.h"
+#include "Vulkan/Resources/VulkanRecordingUploadPage.h"
+#include "Core/Public/Diagnostics/Verify.h"
+#include "Interop/RhiInteropService.h"
+
+SPARKLE_DEFINE_LOG_CATEGORY_STATIC(g_vulkanRenderCommandListLogger, "RHI.Vulkan.CommandList");
+
+VulkanRenderCommandList::VulkanRenderCommandList()
+{
+	ReserveShaderBindingState(m_graphicsBindings, 8);
+	ReserveShaderBindingState(m_computeBindings, 8);
+	ReserveShaderBindingState(m_rayTracingBindings, 8);
+
+	m_retainedDescriptorTables.reserve(32);
+	m_retainedDescriptorHandles.reserve(32);
+	m_retainedDescriptorBuffers.reserve(32);
+	m_recordingResourceUses.reserve(32);
+}
+
+VulkanRenderCommandList::~VulkanRenderCommandList() noexcept
+{
+	ResetTrackedResources();
+}
+
+void VulkanRenderCommandList::CloseOpenRendering() noexcept
+{
+	EndDynamicRenderingIfNeeded();
+}
+
+RhiGpuVirtualAddress VulkanRenderCommandList::AllocateUniformConstantBuffer(const void* data, std::uint32_t sizeInBytes) noexcept
+{
+	return m_isRecording && m_recordingUploadPage != nullptr ? m_recordingUploadPage->AllocateAndCopy(data, sizeInBytes) : RhiGpuVirtualAddress{};
+}
+
+void VulkanRenderCommandList::SetNativeCommandBuffer(
+    VkCommandBuffer commandBuffer,
+    PFN_vkCmdBeginDebugUtilsLabelEXT beginLabel,
+    PFN_vkCmdEndDebugUtilsLabelEXT endLabel,
+    PFN_vkCmdInsertDebugUtilsLabelEXT insertLabel) noexcept
+{
+	m_commandBuffer = commandBuffer;
+	m_dynamicRenderingActive = false;
+	m_renderTargets = {};
+	m_renderTargetCount = 0;
+	m_depthStencil = VK_NULL_HANDLE;
+	m_depthStencilAspectMask = 0;
+	m_hasScissorRect = false;
+	ClearShaderBindingDescriptors(m_graphicsBindings);
+	ClearShaderBindingDescriptors(m_computeBindings);
+	ClearShaderBindingDescriptors(m_rayTracingBindings);
+	m_retainedDescriptorTables.clear();
+	m_retainedDescriptorHandles.clear();
+	m_retainedDescriptorBuffers.clear();
+	m_debugEvents = VulkanDebugEventFunctions{.BeginLabel = beginLabel, .EndLabel = endLabel, .InsertLabel = insertLabel};
+}
+
+ERhiBackendApi VulkanRenderCommandList::GetBackendApi() const noexcept
+{
+	return ERhiBackendApi::Vulkan;
+}
+
+bool VulkanRenderCommandList::IsCoordinatorRecording() const noexcept
+{
+	return m_recordingOwner.IsCoordinator();
+}
+
+void VulkanRenderCommandList::OnResourceTrackingStarted(RhiResourceHandle resource) noexcept
+{
+	if (m_memoryAllocator == nullptr)
+	{
+		return;
+	}
+
+	VulkanRecordingResourceUseToken use = m_memoryAllocator->RetainRecordingResource(resource);
+	if (!use && IsCoordinatorRecording())
+	{
+		use = m_memoryAllocator->RetainCoordinatorRecordingResource(resource);
+	}
+
+	m_recordingResourceUses.push_back(RecordingResourceUse{.Resource = resource, .Token = use});
+}
+
+void VulkanRenderCommandList::OnResourceTrackingFinished(RhiResourceHandle resource, RhiSubmissionToken submissionToken) noexcept
+{
+	if (m_memoryAllocator == nullptr)
+	{
+		return;
+	}
+
+	if (m_recordingResourceReleaseIndex >= m_recordingResourceUses.size())
+	{
+		Diagnostics::Fatal(g_vulkanRenderCommandListLogger, __FILE__, __LINE__, "Vulkan command-list resource tracking finished without a matching retained resource.");
+	}
+	const RecordingResourceUse& use = m_recordingResourceUses[m_recordingResourceReleaseIndex++];
+	if (use.Resource.Value != resource.Value)
+	{
+		Diagnostics::Fatal(g_vulkanRenderCommandListLogger, __FILE__, __LINE__, "Vulkan command-list resource tracking release order does not match its recording order.");
+	}
+	m_memoryAllocator->ReleaseRecordingResource(use.Token, submissionToken);
+
+	if (m_recordingResourceReleaseIndex == m_recordingResourceUses.size())
+	{
+		m_recordingResourceUses.clear();
+		m_recordingResourceReleaseIndex = 0;
+	}
+}
+
+NativeGraphicsCommandListHandle VulkanRenderCommandList::GetNativeHandle(const RhiNativeInteropRequest& request) const noexcept
+{
+	return IsRhiNativeInteropRequestValid(request) ? NativeGraphicsCommandListHandle{m_commandBuffer} : NativeGraphicsCommandListHandle{};
+}
+
+bool VulkanRenderCommandList::SupportsDiagnosticScopes() const noexcept
+{
+	return VulkanDebugEvents::SupportsScopes(m_commandBuffer, m_debugEvents);
+}
+
+void VulkanRenderCommandList::BeginDiagnosticScope(std::string_view label, RhiDiagnosticLabelColor color) noexcept
+{
+	VulkanDebugEvents::BeginScope(m_commandBuffer, m_debugEvents, label, color);
+}
+
+void VulkanRenderCommandList::EndDiagnosticScope() noexcept
+{
+	VulkanDebugEvents::EndScope(m_commandBuffer, m_debugEvents);
+}
+
+void VulkanRenderCommandList::InsertDiagnosticMarker(std::string_view label, RhiDiagnosticLabelColor color) noexcept
+{
+	VulkanDebugEvents::InsertMarker(m_commandBuffer, m_debugEvents, label, color);
+}
+
+void VulkanRenderCommandList::SetPipeline(const RenderPipeline& pipeline) noexcept
+{
+	if (m_commandBuffer == VK_NULL_HANDLE)
+	{
+		return;
+	}
+
+	const auto& vulkanPipeline = static_cast<const VulkanPipeline&>(pipeline);
+	if (vulkanPipeline.GetPipeline() == VK_NULL_HANDLE || vulkanPipeline.GetPipelineLayout() == VK_NULL_HANDLE)
+	{
+		SPDLOG_LOGGER_ERROR(g_vulkanRenderCommandListLogger, "VulkanRenderCommandList: refused to bind an incomplete pipeline.");
+		return;
+	}
+	if (vulkanPipeline.GetBindPoint() == VK_PIPELINE_BIND_POINT_COMPUTE)
+	{
+		EndDynamicRenderingIfNeeded();
+		m_computeBindings.PipelineLayout = vulkanPipeline.GetPipelineLayout();
+	}
+	else
+	{
+		m_graphicsBindings.PipelineLayout = vulkanPipeline.GetPipelineLayout();
+	}
+	vkCmdBindPipeline(m_commandBuffer, vulkanPipeline.GetBindPoint(), vulkanPipeline.GetPipeline());
+}

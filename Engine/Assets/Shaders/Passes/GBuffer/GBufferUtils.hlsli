@@ -1,0 +1,91 @@
+#ifndef SPARKLE_GBUFFER_UTILS_HLSLI
+#define SPARKLE_GBUFFER_UTILS_HLSLI
+
+#include "/Engine/Resources/ViewCameraUniformData.hlsli"
+
+#include "/Engine/Passes/GBuffer/GBufferPacking.hlsli"
+#include "/Engine/Passes/GBuffer/SceneDepthUtils.hlsli"
+#include "/Engine/Geometry/ScreenSpace.hlsli"
+
+Texture2D GBufferBaseColor;
+Texture2D GBufferWorldNormal;
+Texture2D GBufferMaterial;
+Texture2D GBufferEmissive;
+Texture2D GBufferSubsurface;
+Texture2D SceneDepth;
+
+struct GBufferData
+{
+	float3 BaseColor;
+	float Alpha;
+	float3 NormalWorld;
+	float SceneDepth;
+	float Metallic;
+	float Roughness;
+	float AmbientOcclusion;
+	float DielectricF0;
+	float3 Emissive;
+	float3 SubsurfaceColor;
+	float SubsurfaceStrength;
+};
+
+bool HasSubsurface(GBufferData gBuffer)
+{
+	return gBuffer.SubsurfaceStrength > 0.0f && any(gBuffer.SubsurfaceColor > 0.0f);
+}
+
+float GetSkySceneDepthValue()
+{
+	return SceneDepthUtils::SkyDepth(FarZ);
+}
+
+bool IsSkyPixel(float sceneDepth)
+{
+	return SceneDepthUtils::IsSkyDepth(sceneDepth, FarZ);
+}
+
+float DecodeGBufferDielectricF0(float storedDielectricF0)
+{
+	return saturate(storedDielectricF0);
+}
+
+float LoadSceneDepth(uint2 pixelCoord)
+{
+	return SceneDepth.Load(int3(pixelCoord, 0)).r;
+}
+
+GBufferData LoadGBuffer(uint2 pixelCoord)
+{
+	const int3 pixel = int3(pixelCoord, 0);
+	const float4 baseColorSample = GBufferBaseColor.Load(pixel);
+	const float4 normalSample = GBufferWorldNormal.Load(pixel);
+	const float4 materialSample = GBufferMaterial.Load(pixel);
+	const float4 emissiveSample = GBufferEmissive.Load(pixel);
+	const float4 subsurfaceSample = GBufferSubsurface.Load(pixel);
+
+	GBufferData gBuffer;
+	gBuffer.BaseColor = saturate(baseColorSample.rgb);
+	gBuffer.Alpha = baseColorSample.a;
+	gBuffer.NormalWorld = GBufferPacking::DecodeWorldNormal(normalSample.xyz);
+	gBuffer.SceneDepth = LoadSceneDepth(pixelCoord);
+	gBuffer.Metallic = saturate(materialSample.r);
+	gBuffer.Roughness = saturate(materialSample.g);
+	gBuffer.AmbientOcclusion = saturate(materialSample.b);
+	gBuffer.DielectricF0 = DecodeGBufferDielectricF0(materialSample.a);
+	gBuffer.Emissive = max(emissiveSample.rgb, 0.0f);
+	gBuffer.SubsurfaceColor = saturate(subsurfaceSample.rgb);
+	gBuffer.SubsurfaceStrength = saturate(subsurfaceSample.a);
+	return gBuffer;
+}
+
+float3 ReconstructGBufferWorldPosition(uint2 pixelCoord, float sceneDepth, float4x4 invView, float4x4 invProjection)
+{
+	const float2 ndc = PixelCenterToUnjitteredNdc(pixelCoord);
+	const float deviceZ = SceneDepthUtils::DeviceZFromLinearDepth(sceneDepth, NearZ);
+	const float4 positionClip = float4(ndc, deviceZ, 1.0f);
+	const float4 positionView = mul(positionClip, invProjection);
+	const float4 positionWorld = mul(float4(positionView.xyz / positionView.w, 1.0f), invView);
+	return positionWorld.xyz / positionWorld.w;
+}
+
+#endif

@@ -1,0 +1,59 @@
+#include "../PCH.h"
+#include "RayReconstruction/RayReconstructionPass.h"
+
+#include "Commands/RenderCommandContext.h"
+#include "FrameGraph/Builder/FrameGraphBuilder.h"
+#include "FrameGraph/Execution/PassCommandContext.h"
+#include "RayReconstruction/RayReconstructionProvider.h"
+
+SPARKLE_DEFINE_LOG_CATEGORY_STATIC(g_rayReconstructionPassLogger, "Renderer.RayReconstructionPass");
+
+void AddRayReconstructionPass(
+    FrameGraphBuilder& builder,
+    IRayReconstructionProvider& provider,
+    const char* passName,
+    RenderViewportExtent renderExtent,
+    RenderViewportExtent outputExtent,
+    const RayReconstructionPassResources& providerInputs)
+{
+	builder.AddPass(
+	    passName,
+	    EFrameGraphPassKind::ExternalProvider,
+	    [providerInputs](PassResourceBuilder& resourceBuilder)
+	    {
+		    resourceBuilder.Read(providerInputs.NoisyInputColor, ResourceUsage::ShaderRead, "NoisyInputColor");
+		    resourceBuilder.Use(providerInputs.OutputColor, ResourceUsage::UnorderedAccess, "OutputColor");
+		    resourceBuilder.Read(providerInputs.Depth, ResourceUsage::ShaderRead, "Depth");
+		    resourceBuilder.Read(providerInputs.MotionVectors, ResourceUsage::ShaderRead, "MotionVectors");
+		    resourceBuilder.Read(providerInputs.Exposure, ResourceUsage::ShaderRead, "Exposure");
+		    resourceBuilder.Read(providerInputs.Normals, ResourceUsage::ShaderRead, "Normals");
+		    resourceBuilder.Read(providerInputs.Roughness, ResourceUsage::ShaderRead, "Roughness");
+		    resourceBuilder.Read(providerInputs.DiffuseAlbedo, ResourceUsage::ShaderRead, "DiffuseAlbedo");
+		    resourceBuilder.Read(providerInputs.SpecularAlbedo, ResourceUsage::ShaderRead, "SpecularAlbedo");
+		    resourceBuilder.Read(providerInputs.SpecularHitDistance, ResourceUsage::ShaderRead, "SpecularHitDistance");
+	    },
+	    [&provider, providerInputs, renderExtent, outputExtent, passName](PassCommandContext& context)
+	    {
+		    RenderCommandList& commandList = context.Commands.GetRenderCommandList();
+		    const RhiNativeInteropRequest interopRequest{.Consumer = ERhiNativeInteropConsumer::ExternalProvider, .Reason = passName};
+		    if (!provider.Evaluate(
+		            RayReconstructionEvaluationDesc{
+		                .BackendApi = commandList.GetBackendApi(),
+		                .NativeCommandList = commandList.GetNativeHandle(interopRequest),
+		                .NativeNoisyInputColorView = context.Resources.ResolveNativeTextureView(providerInputs.NoisyInputColor, ResourceState::ShaderResource, interopRequest),
+		                .NativeOutputColorView = context.Resources.ResolveNativeTextureView(providerInputs.OutputColor, ResourceState::UnorderedAccess, interopRequest),
+		                .NativeDepthView = context.Resources.ResolveNativeTextureView(providerInputs.Depth, ResourceState::ShaderResource, interopRequest),
+		                .NativeMotionVectorsView = context.Resources.ResolveNativeTextureView(providerInputs.MotionVectors, ResourceState::ShaderResource, interopRequest),
+		                .NativeExposureView = context.Resources.ResolveNativeTextureView(providerInputs.Exposure, ResourceState::ShaderResource, interopRequest),
+		                .NativeNormalsView = context.Resources.ResolveNativeTextureView(providerInputs.Normals, ResourceState::ShaderResource, interopRequest),
+		                .NativeRoughnessView = context.Resources.ResolveNativeTextureView(providerInputs.Roughness, ResourceState::ShaderResource, interopRequest),
+		                .NativeDiffuseAlbedoView = context.Resources.ResolveNativeTextureView(providerInputs.DiffuseAlbedo, ResourceState::ShaderResource, interopRequest),
+		                .NativeSpecularAlbedoView = context.Resources.ResolveNativeTextureView(providerInputs.SpecularAlbedo, ResourceState::ShaderResource, interopRequest),
+		                .NativeSpecularHitDistanceView = context.Resources.ResolveNativeTextureView(providerInputs.SpecularHitDistance, ResourceState::ShaderResource, interopRequest),
+		                .RenderExtent = renderExtent,
+		                .OutputExtent = outputExtent}))
+		    {
+			    Diagnostics::Fatal(g_rayReconstructionPassLogger, __FILE__, __LINE__, "The configured ray-reconstruction provider failed to evaluate the active frame.");
+		    }
+	    });
+}

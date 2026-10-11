@@ -1,0 +1,137 @@
+# Product And Developer Execution Traces
+
+**Status:** capability snapshot; vertical cross-module traces; not workflow success, package proof, or release approval
+
+**Snapshot:** 2026-09-08 at committed `master` revision `ffe60e3a`; current module inventories, source/build ownership, product/tool routes, failure/exit boundaries, and CMake membership reconciled; evidence `S` only
+
+**Scope:** the vital non-graphics journeys from developer/user intent through build, content, world, editor, diagnostics, publication, cancellation, and delivery boundaries
+
+**Owners:** concrete modules own each stage; this document owns only the cross-module trace and unresolved boundary visibility
+
+**Horizontal companion:** [Product Workflow Coverage](ProductWorkflowCoverage.md)
+
+**Graphics companion:** [Graphics Feature Execution Traces](FeatureExecutionTraces.md)
+
+## `PD-0` Persona Journey Freeze
+
+**Historical freeze:** the Game-only audience and Developer-only Launcher/Editor classifications below were superseded by the 2026-10-10 [scope amendment](../../Acceptance/ReleaseScope/Evidence.md#scope-amendment-iter-rel-00-05). Current product journeys are owned by [First Release](../../Acceptance/FirstRelease.md#release-audiences) and its linked module contracts; this source trace does not prove the new packaged route.
+
+The [release product classification, prerequisites, paths, and budgets](../../Acceptance/FirstRelease.md#frozen-product-and-output-classification) decide what each actor may expect. The trace below records the current source route through success, failure/recovery, and exit. A **Blocked** current route is still a decidable contract; it may not be described as a successful journey.
+
+| Actor/journey | Entry and preparation | Execution and success oracle | Failure/recovery | Exit and current verdict |
+| --- | --- | --- | --- | --- |
+| Game consumer | Verify/extract the included archive -> Sparkle Launcher selects Game and a level -> manifest-owned `ShowcaseGame.exe` -> `Projects/Showcase/Src/GameMain.cpp` -> `RunGameApplication()` -> `GameApplication`; no undeclared environment, repository, admin, network or SDK prerequisite is permitted. | Consumer first-run UI -> explicit included-map request -> `LevelSession` -> cooked load -> active catalog identity -> Renderer present; controls/help/settings/reset/quit and frozen path/budget observations complete success. | Unsupported machine, package/content/settings failure, or unavailable selection must stop/name/recover at its owner. Current source defaults to console-enabled Game, uses `SPARKLE_STARTUP_LEVEL`, and can substitute built-in `Empty`, so success can be false. | UI/window quit -> Application stops new work -> console/Renderer/level/world/tasks/input/window/timer settle. **Blocked:** consumer UI, package, per-user state, Shipping console erasure, and failure/exit evidence are absent. |
+| Source adopter | Root `README.md` -> immutable tag/dependency manifest -> supported source toolchain -> CMake configure. Root README is currently absent, and configure unconditionally enters Launcher/Qt before target selection. | Build `ShowcaseGame` plus required cook tools -> cook included products -> run one requested example -> active identity; exact exits, manifests, created paths, cold/warm durations, and no-SDK/unstable-source statement are the oracle. | Missing/old tool, network/cache/integrity failure, Unicode path, locked product, or cook failure must stop the dependent node and retain prior accepted output. Current optional-product membership does not make Qt optional. | Game exits; tool children/task scopes settle; generated roots remain removable through contained clean. **Blocked:** prerequisites are frozen but no clean cold/warm non-author result or separable game-only configure exists. |
+| Optional contributor | `Docs/README.md` -> Engineering task map/change lifecycle -> owning Architecture/source/CMake -> local branch and supported source toolchain. This is Developer-only and does not create an SDK/contributor support promise. | Make one scoped change -> run the owner-selected claim-falsifying check -> inspect diff/status -> submit through the repository host; success is a reviewable change preserving unrelated work with exact evidence. | Missing guidance/tool/check, dirty overlap, failed validation, or unavailable hardware is recorded Failed/Blocked/Unavailable; no CI or private author repair can be implied. Root `CONTRIBUTING.md` and hosted CI are absent. | Stop processes, remove local test-only artifacts, preserve source and report exact status. **Blocked as a public promise; optional Developer-only workflow remains source-usable.** |
+| Launcher developer | Developer artifact `artifacts/dev/launcher/<Profile>/SparkleLauncher.exe`, optional explicit `--root`, and dynamic current-directory/executable-ancestry discovery -> repository-keyed `%LOCALAPPDATA%` state -> capability/preflight graph. | Typed sync/configure/build/cook/run/clean request -> revalidation -> child/result/artifact identity; run success follows the final product child through requested-level activation. | Missing tool/content, stale workspace, failed child, cancellation, timeout, locked output, or containment failure remains a distinct terminal result with recovery. Initial PID/output text/old artifact is not success. | Close/cancel joins Launcher task scope and descendants within budget, retaining final history/log. **Developer-only; source path present, acceptance Blocked.** |
+| Editor developer | `ShowcaseEditor` -> `EditorMain.cpp` -> `RunEditorApplication()` -> `EditorApplication` over `GameApplication` with game console disabled -> workspace/level UI. | Open registered level -> inspect -> typed edit -> undo/redo -> explicit Save All -> reload/render; world/source generations and bytes establish success. | Missing workspace/tool/cooked product, stale edit, save/recook/capture failure, or restart requirement stays visible and preserves the prior accepted world/source. Only explicit Save All may mutate the selected level source. | Close stops UI/operations then GameApplication owners settle within budget. **Developer-only; source path present, non-author/build/package evidence Blocked.** |
+
+## Trace 1: Quick Start To A Live Level
+
+| Stage | Owner and transition | Observable result | Open evidence/failure boundary |
+| --- | --- | --- | --- |
+| Request | Launcher GUI/shell receives project, product, profile, API, and level intent | Typed operation request | Invalid/unsupported combinations must fail before destructive/process work. |
+| Resolve | Launcher capability graph checks host tools, dependencies, workspace, content, cooked products, and executable | One next unmet operation or runnable capability | Truthfulness must be exercised from clean, stale, partial, and offline states. |
+| Repair/build | Provider/planner invokes dependency sync or CMake configure/build for the selected scope | Process result, logs, refreshed stamps/artifacts | Exit code, expected artifacts, cancellation, and descendant cleanup—not output text alone—define success. |
+| Acquire | Level catalog and content provider resolve pack metadata, hash, archive, and extraction root | Required source content becomes ready | Network, proxy, disk, hash, interruption, path containment, and provenance remain evidence gates. |
+| Cook | AssetCooker delegates shader/texture work and publishes scene product sets | Complete cooked generation and registry | Missing, partial, hash-inconsistent, or silently failed publication blocks launch readiness. Quick Start does not infer source freshness; the developer explicitly rebuilds or recooks when source changes. |
+| Launch | Launcher starts ShowcaseEditor or ShowcaseGame with project working directory and requested environment | Final child process and log identity | Launcher PID/exit does not prove the child stayed alive. |
+| Activate | Application creates LevelSession; cooked registry/load graph assembles GameWorld; requested level becomes active | Requested catalog identity is logged/published and rendered | Fallback `Empty`, wrong level, or responsive window without activation is failure. |
+| Exit | Application unwinds console, Renderer, level/world/tasks/input/window owners | Final process exit and settled resources | Repeated launch/exit and in-flight cancellation require execution evidence. |
+
+## Trace 2: Authored Asset To Rendered Result
+
+| Stage | Owner and transition | Contract crossing the boundary | Open evidence/failure boundary |
+| --- | --- | --- | --- |
+| Catalog/source | Showcase level/catalog identifies glTF, GLB, or FBX source and required packs | Stable scene identity plus source/provenance metadata | Missing, unsupported, oversized, path-escaping, or unlicensed input needs explicit rejection. |
+| Import | SourceImporters parse and normalize geometry, transforms, materials, textures, cameras, lights, skin, morph, and animation | Imported semantic scene in engine coordinates | glTF/FBX coverage differs; unsupported semantics must not look successfully preserved. |
+| Plan | AssetCooker discovers selected scenes and deduplicates stable asset requests | Ordered shader -> texture -> scene-assets plan | Conflicting IDs/references and missing tools must fail before publication. |
+| Transform | Texture/Mesh/Material/Scene cookers build runtime schemas | Validated products and cross-references | Numeric fidelity, bounds, resource limits, and deterministic identity remain open. |
+| Publish | Core file-set publication replaces complete generations | Scene registry plus manifests/assets visible together | Interruption must preserve the previous complete generation. |
+| Load | GameFramework cooked-only readers validate magic/counts/ranges and assemble level data | World resources/components with stable IDs | Schema versioning is absent; stale/incompatible/corrupt products need rejection evidence. |
+| Simulate/publish | GameWorld systems update and `RenderFrameSubmissionExtractor` publishes scene deltas, dynamic arrays, resource tables, and view input | Immutable/movable frame submission | Copy budget, generation safety, serial/parallel determinism, and cancellation remain open. |
+| Render/present | Renderer caches resources, prepares scene/view, executes frame graph/RHI, and presents/captures | Actor-visible image and diagnostics | A plausible image alone does not prove semantic fidelity, backend parity, or resource retirement. |
+
+## Trace 3: Editor Inspection And Transaction
+
+| Stage | Owner and transition | Contract crossing the boundary | Open evidence/failure boundary |
+| --- | --- | --- | --- |
+| Open | Editor requests a catalog level through Application/LevelSession | Level-load state and eventual immutable read view | Loading, cancellation, missing assets, fallback, and active identity must be visible. |
+| Inspect | World read view/change journal -> Editor scene model/outliner/inspectors | Presentation rows keyed to world identity/generation | Stale rows or held snapshots must not become mutable world authority. |
+| Edit | Inspector emits a fixed typed forward command and inverse at current generation | Queued `WorldEditCommand` | Unsupported properties and stale generations require visible rejection. |
+| Commit | GameWorld validates and applies the command; journal/change sequence advances | New world state and change identity | Atomicity and failure must be observable; UI optimism cannot masquerade as commit. |
+| Render | Subsequent extraction publishes structural/dynamic change to Renderer | Updated frame without direct Editor mutation of Renderer scene data | View-only camera/settings remain separate from authored world state. |
+| Undo/redo | Transaction history resubmits stored inverse/forward command through the same route | Reversible committed world result | Level replacement, stale identity, repeated undo/redo, and partial failure need evidence. |
+| Save | Editor serializes its supported level-document changes | Updated source level document | Dirty-state, Save As, autosave, recovery, arbitrary schema preservation, and source-control integration are not implied. |
+
+## Trace 4: Rendering Setting To Active GPU Path
+
+| Stage | Owner and transition | Contract crossing the boundary | Open evidence/failure boundary |
+| --- | --- | --- | --- |
+| Request | DefaultEngine.ini, command-line CVar, editor settings, or game console selects a value | Requested setting with source/scope | Command-line unknown/parse failures are currently silent; precedence and malformed persistence need evidence. |
+| Persist/apply | Application settings persistence writes its fixed section; Application registers launch CVars, applies persisted values, then applies command-line assignments before host creation; Editor edits a private interaction model and Application submits the Renderer-owned value state | Typed CVar/settings state with command line taking precedence over persisted values | Renderer owns no filesystem/UI controller. View mode is session-only; adapter preference and back-buffer format require restart. Write failure/package path behavior is open. |
+| Resolve | Renderer combines settings with RHI/provider/device capability | Active GBuffer/lighting/traversal/provider/presentation plan or unavailable reason | Every selector needs requested-versus-active reporting; silent substitution blocks inclusion. |
+| Reconfigure | Coordinator sends control state; FramePipeline rebuilds topology or provider/shader generation where needed | New graph/generation and invalidated history | In-flight settings changes, retirement, resize, and failure rollback require evidence. |
+| Execute | Frame graph materializes passes/pipelines and RHI lowers work to the selected backend | Presented/captured output plus diagnostics | Each unlike backend/mode cell retains an independent verdict. |
+
+## Trace 5: Shader Change To Safe Runtime Generation
+
+The complete graphics-side trace is [Shader Authoring To Runtime Generation](FeatureExecutionTraces.md#trace-7-shader-authoring-to-runtime-generation). From the developer's workflow perspective:
+
+| Stage | Owner and transition | Required visible behavior |
+| --- | --- | --- |
+| Detect/select | Editor or command line chooses all, one registered shader ID, or changed-source closure | Exact affected set and prerequisites are inspectable. |
+| Execute | Editor operation service launches ShaderCompiler with cancellation signal and captures command/output/result | Progress, cancellation, nonzero exit, and diagnostic source remain visible. |
+| Publish | Compiler validates ABI/reflection and atomically publishes map/library/dependency data plus publication identity | Partial/stale/outside-authority products are rejected. |
+| Admit | Application verifies publication identity, paths, hashes, and freshness before asking Renderer to reload | Failure leaves the previous generation active and says why. |
+| Swap/retire | Renderer builds a complete replacement generation, publishes it, and retires old GPU objects after queue completion | No mixed generation, device-idle shortcut, stale pipeline, or hidden source/compiler dependency in Shipping. |
+
+## Trace 6: Capture And Diagnostic Handoff
+
+| Stage | Owner and transition | Contract crossing the boundary | Open evidence/failure boundary |
+| --- | --- | --- | --- |
+| Request | Editor/public Renderer API selects final or intermediate viewport product | Capture ID plus product intent | Unavailable product/format must return a useful failure. |
+| Resolve/read back | Renderer capture service resolves current resource/generations; RHI performs asynchronous texture readback | Completed pixel payload with extent/format/identity | Color encoding, row pitch, orientation, depth interpretation, and resize races need numeric proof. |
+| Publish | Renderer polls completion and exposes bounded completed results to Application/Editor | Movable result or explicit pending/absent state | Completed queue drops oldest beyond capacity; UI must not present absence as success. |
+| Inspect/correlate | Editor diagnostics plus RHI markers/object names/native validation support PIX/RenderDoc/Nsight/RGP/WPA investigation | Human-readable report and retained external artifact | Counters/timings/memory must be reconciled with one native capture and observer cost. |
+
+## Trace 7: Cancellation, Failure, And Shutdown Settlement
+
+| Boundary | Current owner | Required settlement question |
+| --- | --- | --- |
+| Launcher operation | Launcher background operation/task plus Core child-process runner | Does cancellation stop the owning process tree, report the final state once, preserve unrelated files, and invalidate only affected readiness? |
+| Import/cook | Asset/texture/shader tool plus Core publication helper | Does any item failure prevent mixed publication, release memory leases, and preserve the previous readable generation? |
+| Level load/switch | LevelSession task graph and GameWorld generation owner | Can an old/cancelled request ever commit after a newer selection, and are mapped/decoded resources released? |
+| Editor operation | Feature coordinator plus private EditorOperationRuntime document scope | Is only one feature-owned result consumed, does shared lifetime closure settle outstanding work, and does UI distinguish cancelled/failed/succeeded without a central feature registry? |
+| Renderer control/frame | RenderCoordinator, FramePipeline, RHI queue tokens | Are submitted frames/control requests settled and GPU-owned resources retired only after completion? |
+| Process shutdown | Application | Are console, Renderer, level/world, Tasks, input/window, and timer destroyed in dependency order without new work starting? |
+
+These questions are intentionally retained as evidence placeholders. Source contains partial settlement mechanisms, but only controlled cancellation/failure injection and repeat shutdown can answer them.
+
+## Trace 8: New Project To Runnable Product
+
+| Stage | Current owner and transition | Current boundary or missing owner |
+| --- | --- | --- |
+| Declare | A direct child of `Projects` supplies `.sparkle-project` and module CMake | Root project discovery recognizes the project; TemplateProject is intentionally skipped. No supported scaffolding command or public template lifecycle is defined. |
+| Compose | Project CMake defines `<Project>Editor` and/or `<Project>Game` and links the corresponding Application product | Showcase proves one in-repository convention, not a stable external SDK/API/ABI promise. |
+| Describe content | Project catalog/level documents identify startup levels, scenes, packs, hashes, licenses, and support flags | Schema ownership exists in Core/Showcase; authoring guidance, compatibility/versioning, and validation UX remain incomplete. |
+| Author/import | Project assets and supported glTF/GLB/FBX sources enter shader/content pipelines | Unsupported formats/material semantics and source provenance must be visible before release. |
+| Build/cook/run | CMake/Launcher produces development artifacts and cooked products, then launches from project context | A project-specific end-to-end route exists; independent project creation and clean reproduction are unproven. |
+| Distribute | Project products enter formal package/install/public integration | No current package owner or external consumption contract exists, so the trace stops here. |
+
+## Trace 9: Changed Claim To Reviewable Evidence
+
+| Stage | Owner and transition | Required output |
+| --- | --- | --- |
+| Scope | Developer maps changed behavior to module capability/`WF-*`, owner, producers, consumers, build membership, and applicable persona/roadmap/acceptance targets | One finite claim and affected matrix cells. |
+| Select check | Validation standard and capability evidence plan choose the cheapest check capable of falsifying that claim | Named `CHK-*`, predeclared oracle, environment, artifact, and escalation trigger. |
+| Execute | Owning target/product/tool runs the focused check | Exact command or UI route, revision/dirty state, observation, warnings/errors, duration, and raw artifact. |
+| Escalate | A passing prerequisite permits broader runtime/native/performance/package evidence; a failure stops unrelated broad work | No broad suite is used to hide a failed prerequisite. |
+| Record | Candidate `FCR-*` report maps result to risks, criteria, failures, checks, artifacts, defects, and waivers | Evidence grade reflects what actually ran. |
+| Review/approve | Evidence reviewer and release owner accept, block, exclude, or remove the exact surface | Decision and invalidation trigger are explicit; Architecture changes only if implementation truth changed. |
+
+This route is procedurally documented but operationally incomplete: there is no CTest/CI inventory or generated affected-check map. The [Capability Documentation Review](../../Engineering/Workflow/CapabilityReview.md) owns dossier review; [Validation And Evidence](../../Engineering/Verification/ValidationAndEvidence.md) owns check design.
+
+## Trace Closure Rule
+
+A product trace is complete only when the actor can discover the entry, prerequisites and destructive effects are visible, the requested result is distinguishable from the active result, every representation has one owner, cancellation/failure leaves a defined safe state, success is observable at the final consumer, and candidate-bound evidence records the exact environment and artifacts. If a trace stops because no implementation owner exists—currently formal packaging and public support/update operations—keep that discontinuity explicit rather than drawing a future arrow.

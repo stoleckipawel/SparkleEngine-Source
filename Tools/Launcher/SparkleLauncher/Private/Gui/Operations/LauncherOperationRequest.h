@@ -1,0 +1,51 @@
+#pragma once
+
+#include "RHI/Public/Diagnostics/ExternalCaptureProvider.h"
+
+#include <QtCore/QString>
+#include <QtCore/QVector>
+
+#include <filesystem>
+
+namespace SparkleLauncher
+{
+	struct LauncherCleanTarget
+	{
+		QString DisplayName;
+		QString Path;
+		QString Detail;
+	};
+
+	struct LauncherOperationRequest
+	{
+		std::filesystem::path RepositoryRoot;
+		QString RunId;
+		QString OperationId;
+		QString ContentId;
+		QString RunMode = "editor";
+		QString EditorProfile;
+		QString GameProfile;
+		QString WorkspaceIde;
+		QString WorkspaceCompiler;
+		QString BuildScopes;
+		QString CookScopes;
+		QString SelectedTargets;
+		QString RequestedLevelIds;
+		QString SourceDependencyId;
+		QString HostToolId;
+		QString ShaderBackend;
+		QString GraphicsApi;
+		ExternalCaptureProvider CaptureProvider = ExternalCaptureProvider::None;
+		QString CleanScope = "cooked";
+		QVector<LauncherCleanTarget> CleanTargets;
+		QVector<QString> PreservedPaths;
+		bool ShaderEnableDebugInfo = false;
+		bool ShaderEnableOptimizations = true;
+		bool ShaderWarningsAsErrors = true;
+		bool ShaderStripDebugInfo = true;
+		bool ForceConfigure = false;
+		bool ForceRecook = false;
+		bool ConfirmForceRecook = false;
+		bool ConfirmClean = false;
+	};
+}

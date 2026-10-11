@@ -1,0 +1,70 @@
+#include "LevelOperationProcessRequests.h"
+
+#include "AssetPackSyncPlanner.h"
+
+#include "Core/Public/Projects/ProjectLevelCatalog.h"
+#include "LauncherStatePaths.h"
+
+#include <utility>
+
+namespace SparkleLauncher
+{
+	static ProcessRequest MakeAssetPackSyncRequest(const LevelOperationPlan& plan, const ProjectAssetPack& pack)
+	{
+		const std::filesystem::path projectRoot = plan.RepositoryRoot / "Projects" / plan.Request.ContentId;
+		const LauncherStatePaths statePaths = ResolveLauncherStatePaths(plan.RepositoryRoot);
+		const std::filesystem::path cacheRoot = statePaths.ContentArchivesRoot / plan.Request.ContentId;
+		const std::filesystem::path rootRelativeToExtraction = pack.rootPath.lexically_relative(pack.extractionPath);
+
+		ProcessRequest process;
+		process.WorkingDirectory = plan.RepositoryRoot;
+		process.LogPath = ResolveLauncherOperationLogPath(plan.RepositoryRoot, plan.Operation.Id, "AssetPack-" + pack.id + ".txt");
+		process.ExecutablePath = plan.CMakePath;
+
+		process.Arguments = {
+		    "-DSPARKLE_PACK_ID=" + pack.id,
+		    "-DSPARKLE_PACK_URL=" + pack.sourceUrl,
+		    "-DSPARKLE_PACK_ARCHIVE_NAME=" + pack.archiveName,
+		    "-DSPARKLE_PACK_ARCHIVE_BYTES=" + std::to_string(pack.archiveBytes),
+		    "-DSPARKLE_PACK_ARCHIVE_SHA256=" + pack.archiveSha256,
+		    "-DSPARKLE_PACK_SOURCE_PAGE=" + pack.sourcePageUrl,
+		    "-DSPARKLE_PACK_VERSION=" + pack.version,
+		    "-DSPARKLE_PACK_LICENSE=" + pack.license,
+		    "-DSPARKLE_PACK_PROJECT_ROOT=" + projectRoot.generic_string(),
+		    "-DSPARKLE_PACK_CACHE_ROOT=" + cacheRoot.generic_string(),
+		    "-DSPARKLE_PACK_EXTRACT_ROOT=" + pack.extractionPath.generic_string(),
+		    "-DSPARKLE_PACK_ROOT_RELATIVE=" + rootRelativeToExtraction.generic_string(),
+		    "-DSPARKLE_PACK_REQUIRED_RELATIVE=" + pack.requiredRelativePath.generic_string(),
+		    "-P",
+		    (plan.RepositoryRoot / "Tools" / "Launcher" / "SparkleLauncher" / "Scripts" / "SyncAssetPack.cmake").generic_string(),
+		};
+
+		if (!pack.sourceFilesManifestPath.empty())
+		{
+			process.Arguments.insert(process.Arguments.end() - 2, "-DSPARKLE_PACK_FILES_MANIFEST=" + pack.sourceFilesManifestPath.generic_string());
+		}
+		return process;
+	}
+
+	std::vector<LevelOperationProcessStep> BuildLevelOperationProcessSteps(const LevelOperationPlan& plan)
+	{
+		std::vector<LevelOperationProcessStep> steps;
+		const std::filesystem::path projectRoot = plan.RepositoryRoot / "Projects" / plan.Request.ContentId;
+		const ProjectLevelCatalog catalog = ProjectLevelCatalogFile::Load(projectRoot);
+		for (const std::string& packId : BuildAssetPackSyncPlan(catalog, plan.Request.RequestedLevelIds))
+		{
+			const ProjectAssetPack& pack = catalog.assetPacks.at(packId);
+			if (catalog.IsAssetPackPayloadPresent(pack))
+			{
+				continue;
+			}
+
+			LevelOperationProcessStep step;
+			step.Id = "sync-asset-pack-" + pack.id;
+			step.DisplayName = "Acquire " + pack.displayName;
+			step.Request = MakeAssetPackSyncRequest(plan, pack);
+			steps.push_back(std::move(step));
+		}
+		return steps;
+	}
+}

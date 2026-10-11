@@ -1,0 +1,92 @@
+Checks: >
+  -*,
+  clang-analyzer-*,
+  modernize-*,
+  -modernize-use-auto,
+  -modernize-use-trailing-return-type,
+  -modernize-use-nodiscard,
+  performance-*,
+  bugprone-*,
+  readability-*,
+  -readability-qualified-auto,
+  -readability-uppercase-literal-suffix,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+  hicpp-*,
+  -hicpp-use-auto,
+  -hicpp-uppercase-literal-suffix,
+  cert-*,
+  portability-*,
+  -portability-avoid-pragma-once,
+  misc-definitions-in-headers,
+  misc-header-include-cycle,
+  misc-include-cleaner,
+  misc-non-private-member-variables-in-classes,
+  misc-redundant-expression,
+  misc-throw-by-value-catch-by-reference,
+  google-explicit-constructor,
+  google-runtime-int,
+  readability-implicit-bool-conversion,
+  cppcoreguidelines-owning-memory,
+  cppcoreguidelines-no-malloc,
+  cppcoreguidelines-pro-type-reinterpret-cast,
+  cppcoreguidelines-pro-type-static-cast-downcast,
+  cppcoreguidelines-avoid-do-while
+
+WarningsAsErrors: '*'
+
+HeaderFilterRegex: '.*'
+ExcludeHeaderFilterRegex: '(^|[\\/])(build(-[^\\/]+)?|artifacts|ThirdParty|_deps)([\\/]|$)'
+
+FormatStyle: none
+
+CheckOptions:
+  - { key: modernize-use-nullptr.NullMacros, value: 'NULL' }
+
+  # ------------------------------------------------------------------
+  # cppcoreguidelines
+  # ------------------------------------------------------------------
+  - { key: cppcoreguidelines-avoid-magic-numbers.IgnoredIntegerValues, value: '0;1;-1;' }
+  - { key: cppcoreguidelines-avoid-magic-numbers.IgnoredFloatingPointValues, value: '0.0;1.0;-1.0;' }
+
+  # ------------------------------------------------------------------
+  # performance
+  # ------------------------------------------------------------------
+  - { key: performance-move-const-arg.CheckTriviallyCopyableMove, value: 'true' }
+  - { key: performance-unnecessary-value-param.AllowedTypes, value: '' }
+  - { key: cppcoreguidelines-rvalue-reference-param-not-moved.AllowPartialMove, value: 'true' }
+  # Wider enum storage is intentional for flags, imported/cooked records, CPU/GPU mirrors, and native or serialized contracts.
+  - { key: performance-enum-size.EnumIgnoreList, value: '.*Flags;Imported.*;Cooked.*;Key;SceneMeshKind;SceneMeshInstanceGroupKind;ShaderTarget;ShaderStageMask;ShaderStageVisibility;PixelFormat;RenderViewMode;RenderViewInvalidationReason;RenderMeshKind;RenderMeshInstanceGroupKind;MeshInstanceBatchSource;SceneLightKind;AlphaMode;Slot;MaterialBindingMode;RayTracingSceneRayType' }
+
+  # ------------------------------------------------------------------
+  # readability (implicit conversions)
+  # ------------------------------------------------------------------
+  - { key: readability-implicit-bool-conversion.AllowIntegerConditions, value: 'false' }
+  - { key: readability-implicit-bool-conversion.AllowPointerConditions, value: 'false' }
+
+  - { key: readability-identifier-length.MinimumParameterNameLength, value: '2' }
+  - { key: readability-identifier-length.MinimumVariableNameLength, value: '2' }
+  - { key: bugprone-easily-swappable-parameters.MinimumLength, value: '3' }
+  - { key: hicpp-signed-bitwise.IgnorePositiveIntegerLiterals, value: 'true' }
+  # Platform and dependency umbrella headers intentionally own their internal provider selection.
+  - { key: misc-include-cleaner.IgnoreHeaders, value: '(^|[\\/])(PCH\.h|VulkanPCH\.h|cmake_pch\.hxx|[Ww]indows\.h)$|.*[\\/]Windows Kits[\\/].*|(^|[\\/])spdlog[\\/]' }
+  - { key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic, value: 'true' }
+
+  # ------------------------------------------------------------------
+  # readability: identifier naming
+  # ------------------------------------------------------------------
+  - { key: readability-identifier-naming.FunctionCase, value: 'CamelCase' }
+  - { key: readability-identifier-naming.MethodCase, value: 'CamelCase' }
+  - { key: readability-identifier-naming.ClassCase, value: 'CamelCase' }
+  - { key: readability-identifier-naming.StructCase, value: 'CamelCase' }
+  - { key: readability-identifier-naming.EnumCase, value: 'CamelCase' }
+  - { key: readability-identifier-naming.TypeAliasCase, value: 'CamelCase' }
+  - { key: readability-identifier-naming.TypedefCase, value: 'CamelCase' }
+
+  - { key: readability-identifier-naming.LocalVariableCase, value: 'camelBack' }
+  - { key: readability-identifier-naming.ParameterCase, value: 'camelBack' }
+
+  - { key: readability-identifier-naming.PrivateMemberCase, value: 'camelBack' }
+  - { key: readability-identifier-naming.PrivateMemberPrefix, value: 'm_' }
+  - { key: readability-identifier-naming.ProtectedMemberCase, value: 'camelBack' }
+  - { key: readability-identifier-naming.ProtectedMemberPrefix, value: 'm_' }

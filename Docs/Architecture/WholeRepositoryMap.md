@@ -1,0 +1,294 @@
+# D. Whole Repository Architecture Map
+
+**Status:** current map; source-backed and descriptive, not a normative architecture or strategy contract
+
+**Last verified:** repository-wide map 2026-08-28 at committed `master` revision `20814381`; Launcher ownership and repository code-style routes reverified 2026-08-31 at committed `master` revision `61fe39d9`; build-module dependency visibility reverified 2026-09-03 against the current working tree
+
+**Scope:** implemented repository structure, target boundaries, runtime and tool flows, project catalog, and current source-evidence limits
+
+## Read This Page
+
+- **Find an owner:** [Repository layout](#repository-at-a-glance) and [module boundaries](#build-and-module-boundaries).
+- **Follow a workflow:** Use the runtime and tool flows below, then open the owning module for its details.
+
+## Intent And Authority
+
+This is the shortest current route through the repository. It names implemented owners and executable build boundaries without duplicating their detailed contracts. Code and build configuration remain the authority for implementation. Recheck the named paths when a change moves an owner or target.
+
+Target capability belongs to [Principal Graphics Requirements](../Strategy/Requirements.md), binding implementation rules are routed by the [Engineering task map](../Engineering/README.md#choose-by-task), and focused decisions belong to their architecture documents. In particular:
+
+- [Renderer and RHI Architecture Boundary](Decisions/RendererRhiBoundary.md) owns Renderer/RHI dependency and mechanism rules.
+- [Module Architecture And Capability Inventory](Modules/README.md) owns module navigation plus the dated, feature-level source inventory and explicit coverage/limitations; it does not own target architecture, release classification, or executable evidence.
+- [Product Workflow Coverage](CrossModule/ProductWorkflowCoverage.md) and [Product Execution Traces](CrossModule/ProductExecutionTraces.md) own the horizontal actor-journey comparison and vertical non-graphics handoff map; they do not prove usability or release readiness.
+- [World Coordinate, Units, and Transform Contract](Decisions/WorldCoordinateAndUnits.md) owns spatial semantics.
+- [Editor Viewport Camera Architecture](Decisions/EditorViewportCamera.md) owns the editor-view and scene-camera split.
+- [Shader System Architecture](CrossModule/ShaderSystem/README.md) owns the enduring authoring, compilation, cooked-artifact, runtime-materialization, and graph-use design. The [capability inventory](Modules/Tools/ShaderCompiler/README.md) owns the dated current-source view, and the [delivery plan](CrossModule/ShaderSystem/Plan.md) owns phase order.
+- [Bistro and San Miguel Acceptance Workloads](../Acceptance/GraphicsWorkloads.md) owns workload gates and evidence meaning.
+
+Dated assessments retain the source state they observed. They are not silently rewritten into current architecture claims.
+
+## Repository At A Glance
+
+```text
+SparkleEngine
+|-- CMake/                 build profiles, artifact/project helpers, dependencies, boundary check
+|-- Config/                engine defaults
+|-- Engine/                runtime modules and engine shaders/assets
+|-- Tools/                 launcher, shader compiler, importers, and cookers
+|-- Projects/Showcase/     editor/game products, level catalog, small source content
+|-- Docs/                  strategy, architecture, engineering, acceptance, plan, and research knowledge
+|-- artifacts/             generated validation/development output; not source authority
+|-- build/                 generated build trees and dependency cache
+`-- .sparkle               repository marker used by tooling
+```
+
+Mutable editor/game state is not repository content. Development products
+use `%LOCALAPPDATA%/SparkleEngine/Development/<repository-id>/<Product>/` and
+packaged `v0.1` products use `%LOCALAPPDATA%/SparkleEngine/<Product>/v0.1/`,
+with typed `Settings`, `Logs`, `Captures`, `Crashes`, and `Cache` children.
+
+The top-level CMake project requires C++20, loads the Sparkle build profiles and artifact/project contracts, adds `Engine` and `Tools`, then discovers runnable projects through `Projects/*/.sparkle-project`. Optional content-pipeline, shader-compiler, KTX, NVIDIA Streamline, sanitizer, and strict-warning features are explicit CMake options.
+
+## Build And Module Boundaries
+
+| Source owner | Primary target or product | Direct engine dependency shape |
+| --- | --- | --- |
+| `Engine/Core` | `SparkleCore` | bottom engine layer; public spdlog contract |
+| `Engine/Tasks` | `SparkleTasks` | private `SparkleCore` |
+| `Engine/Platform` | `SparklePlatform` | public `SparkleCore` |
+| `Engine/RHI` | `SparkleRHICommon`, `SparkleRHIDiagnostics`, backend targets, `SparkleRHI` | public `SparkleCore`; private Platform and selected backends |
+| `Engine/GameFramework` | `SparkleGameFramework` | public Core and Tasks; no Renderer or Platform dependency |
+| `Engine/Renderer` | registration/provider targets and `SparkleRenderer` | public Core and RHI; private Platform, GameFramework, Tasks, providers, and ImGui |
+| `Engine/Editor` | `SparkleEditor` | public Core, RHI, Renderer, GameFramework, and Platform; private ImGui |
+| `Engine/Application` | `SparkleApplication`, `SparkleApplicationEditor` | game host publishes Renderer; editor host layers Editor over the game host |
+| `Projects/Showcase` | `ShowcaseEditor`, `ShowcaseGame` | explicit editor and game launch products |
+
+The active RHI target split is:
+
+```mermaid
+flowchart TD
+    Common[SparkleRHICommon<br/>object sources] --> Facade[SparkleRHI]
+    D3D12[SparkleRHI_D3D12] --> Facade
+    Vulkan[SparkleRHI_Vulkan] --> Facade
+    Diagnostics[SparkleRHIDiagnostics] --> D3D12
+    Diagnostics --> Vulkan
+```
+
+`SparkleRHI` privately links the selected backend targets; each backend privately links `SparkleRHIDiagnostics`. `SparkleRHI_D3D12` is enabled by default. Vulkan is enabled when the SDK is found, or required explicitly by configuration. CMake assertions reject common/backend source leakage, and the root `architecture_boundary_check` target enforces the repository-level Renderer/RHI rules.
+
+## Editor And Game Product Flow
+
+```mermaid
+flowchart TD
+    Product[ShowcaseEditor or ShowcaseGame] --> App[SparkleApplicationEditor<br/>or SparkleApplication]
+    App --> Session[LevelSession]
+    Session --> World[GameWorld and compiled GameSystemGraph]
+    World --> Extract[RenderFrameSubmissionExtractor]
+    Extract --> Submission[Immutable RenderFrameSubmission]
+    Submission --> Facade[Renderer facade and RenderCoordinator]
+    Facade --> Context[RendererExecutionContext]
+    Context --> Host[RendererHost backend/runtime owner]
+    Context --> Pipeline[FramePipeline frame-system owner]
+    Host -. sole composition .-> Pipeline
+    Pipeline --> Frame[RenderScene, RenderView,<br/>FrameGraph, and feature passes]
+    Frame --> Services[RenderDeviceServices and public RHI]
+    Services --> D3D12[D3D12 backend]
+    Services --> Vulkan[Vulkan backend]
+```
+
+`GameWorld` is gameplay/level authority. It evaluates systems and publishes a sequenced structural `RenderSceneDelta`, immutable per-frame dynamic data, resource tables, and `RenderViewInput` through `RenderFrameSubmission`; the Renderer never queries ECS storage directly.
+
+`RenderCoordinator` owns serial or render-thread submission, the bounded frame queue and ordered render-thread command mailbox, publication of read state, and shutdown settlement. Both modes use the same typed renderer-control execution; the threaded mailbox's frame-ready command remains coordinator-only. `RendererExecutionContext` owns the execution-thread lifetime. `RendererHost` owns backend/runtime services and is the sole `FramePipeline` factory without becoming a service locator. `FramePipeline` owns its caches, persistent RenderScene, Scene/View preparation and state, providers, capture/UI integration, and frame features; it accepts one monotonic submission, prepares one canonical `RenderFrame`, executes the frame graph, submits the frame, and advances frame-in-flight state.
+
+`SparkleTasks` is the shared task topology/execution module used by GameFramework, Renderer, Application, and the cooking path. A subsystem must not introduce a competing general scheduler.
+
+## Current Renderer Navigation Overlay
+
+For the current frame in execution order, start with [Rendering a Sparkle Frame](Modules/Engine/Renderer/RenderingASparkleFrame.md). For explicit feature contracts, use the [Renderer feature dossiers](Modules/Engine/Renderer/Features/README.md). The overlay below remains the repository/source ownership view.
+
+The current Renderer owner map is:
+
+| Concern | Current owner |
+| --- | --- |
+| Stable host contracts: facade, submission/settings requests, read-only viewport products, capture, UI packets, opaque handles, and bounded diagnostics | `Engine/Renderer/Public` and the `Renderer` facade |
+| Serial/threaded coordination, control queue, frame queue, published read state | `Private/Concurrency` |
+| Backend configuration and service lifetime | `Private/Host` |
+| Persistent render-scene state, GPU scene, material tables, scene preparation, ray-tracing scene and table plan | `Private/Scene` |
+| Per-frame camera/display/temporal state and prepared view work | `Private/View` |
+| Frame lifetime, topology rebuild, graph construction/execution, and retired graph generations | `Private/Frame` |
+| Technique and product setup/recording | `Private/Passes` |
+| Generic graph handles/resources, dependency compilation, barriers, transients, and execution | `Private/FrameGraph` |
+| Compute/graphics/ray-tracing runtime materialization, shader-parameter construction, and binding | `Private/Pipeline`, `Private/PipelineRuntime`, and `Private/ShaderParameters` |
+| BLAS/TLAS strategy, execution plans, shared RT composition, and RT diagnostics | `Private/RayTracing` |
+| Upscaling, ray reconstruction, and Streamline integration | `Private/Providers`, `Private/Upscaling`, `Private/RayReconstruction`, and `Private/Streamline` |
+
+Renderer implementation headers are not a cross-module API. Other modules may include only `Renderer/Public`; public Renderer headers may not depend on `Renderer/Private`. Feature-specific policy remains under its `Private/Passes/.../<Feature>` owner, while genuinely shared mechanisms live under a focused private subsystem and carry no feature policy.
+
+The old private `SceneData`, `Camera`, `FramePipeline`, and `Frame/Core` navigation roots no longer exist. The current high-level route is:
+
+```mermaid
+flowchart TD
+    Coordinator[RenderCoordinator] --> Context[RendererExecutionContext]
+    Context --> Host[RendererHost]
+    Context --> Pipeline[Frame/FramePipeline]
+    Host -. constructs .-> Pipeline
+    Pipeline --> Scene[Scene preparation,<br/>GPU scene, and ray tracing]
+    Pipeline --> View[RenderViewBuilder and<br/>view preparation]
+    Scene --> Build[BuildRenderFrameGraph]
+    View --> Build
+    Build --> Passes[Feature passes]
+    Build --> Graph[Generic frame-graph infrastructure]
+    Passes --> Execute[FramePipeline::ExecuteFrame]
+    Graph --> Execute
+    Execute --> Submit[RenderDeviceServices::SubmitFrame]
+```
+
+The `FrameGraph` object is rebuilt when output/topology, provider selection, lighting/GBuffer selection, shader generation, or a used shader-table-plan generation changes. During each recorded frame, imported resources and typed parameters are applied from the canonical `RenderFrame`, then the existing graph runs setup, compile, pass preparation, and execution. Scene/View identity is not reassembled as a parallel execution parameter list. This is implemented source shape; its CPU cost still requires measurement before a caching change is justified.
+
+## Renderer Feature Map
+
+| Feature | Current source owner and state |
+| --- | --- |
+| GBuffer | `Passes/GBuffer` owns shared targets and composition; `Raster` and `RayTracing` own the two concrete geometry frontends. [Feature dossier](Modules/Engine/Renderer/Features/GeometryAndResources/GeometryMaterialsAndGBuffer.md). |
+| Lighting | `Passes/Lighting` plus ReSTIR/reference producers; one family contract owns mode selection, lobe composition, sky boundary, and the Direct/Indirect/Volumetric taxonomy. [Family dossier](Modules/Engine/Renderer/Features/Lighting/README.md). |
+| Direct lighting | `Passes/Lighting/Direct`, `Passes/Lighting/Shadows`, and the direct reservoir route; four analytic light kinds feed direct diffuse/specular/subsurface lobes. ReSTIR DI conformance and runtime correctness remain unproved. [Feature package](Modules/Engine/Renderer/Features/Lighting/DirectLighting/README.md). |
+| Indirect lighting | `Passes/Lighting/Restir/Indirect` owns the seed-replay reservoir prototype that feeds indirect diffuse/specular lobes; sky is the environment/background boundary. ReSTIR GI/GRIS conformance is not established. [Feature package](Modules/Engine/Renderer/Features/Lighting/IndirectLighting/README.md). |
+| Volumetric lighting | No participating-media, fog, scattering/transmittance, atmosphere, aerial-perspective product, pass, shader, or scene representation exists. A post-release research/discovery/architecture/plan package now owns the target. [Feature package](Modules/Engine/Renderer/Features/Lighting/VolumetricLighting/README.md). |
+| Deferred decals | No current authoring, scene/GPU data, primary GBuffer composition, or secondary-ray evaluation path exists; target design is kept separate from current state. [Feature-gap dossier](Modules/Engine/Renderer/Features/DeferredDecals/README.md). |
+| Post Processing | `Passes/PostProcessing`, `Passes/Presentation`, provider stacks, and output publication form one ordered family. [Family dossier](Modules/Engine/Renderer/Features/PostProcessing/README.md). |
+| Exposure | `Passes/PostProcessing/Exposure`; per-view manual/automatic metering and adaptation. [Feature dossier](Modules/Engine/Renderer/Features/PostProcessing/DisplayPipeline/Exposure.md). |
+| Image reconstruction/upscaling | `Passes/Presentation/Upscaling`, provider stack, and ReSTIR reconstruction; one output-extent resolved product. [Feature dossier](Modules/Engine/Renderer/Features/PostProcessing/ReconstructionAndGeneration/ImageReconstructionAndUpscaling.md). |
+| Tone mapping | `Passes/Presentation/Display/ToneMapping`; exposure-weighted HDR to display-linear mapping through three fixed operators. [Feature dossier](Modules/Engine/Renderer/Features/PostProcessing/DisplayPipeline/ToneMapping.md). |
+| Color grading | No grading controls, LUT workflow, transform, pass, shader, or selector exists. [Feature package and current absence contract](Modules/Engine/Renderer/Features/PostProcessing/DisplayPipeline/ColorGrading/README.md). |
+| Chromatic aberration | No lens/channel model, pass, shader, viewport setting, or selector exists. [Feature package and current absence contract](Modules/Engine/Renderer/Features/PostProcessing/DisplayPipeline/ChromaticAberration/README.md). |
+| Frame generation | No synthesis provider, DLSS-G registration, optical-flow input, generated-frame identity, pacing, UI, or present route exists; Reflex is latency infrastructure. [Negative capability dossier](Modules/Engine/Renderer/Features/PostProcessing/ReconstructionAndGeneration/FrameGeneration.md). |
+| Presentation/output | `Passes/Visualization` owns focused visualization families; `Passes/Presentation/Upscaling` resolves output extent; `Passes/Presentation/Display` owns tone mapping and encoding; the Presentation root composes and publishes the result. [Feature dossier](Modules/Engine/Renderer/Features/PostProcessing/DisplayPipeline/PresentationAndOutput.md). |
+| UI/viewport composition | `Private/UI` and `Private/Editor`; immutable packets, host overlay, editor viewport texture binding, and generation checks. [Feature dossier](Modules/Engine/Renderer/Features/ViewportAndDiagnostics/UiAndViewportComposition.md). |
+| Persistent GPU scene | `Scene/GpuScene`; geometry, material, lighting, and ray-tracing bindings derived from `RenderScene` |
+| Ray-tracing scene | `Scene/RayTracing` plus `RayTracing/Acceleration`; classic and capability-gated partitioned TLAS share scene identity |
+| Dual RT execution | GBuffer and direct-shadow effects have typed inline-query and native-pipeline source frontends selected before graph construction. [Feature dossier](Modules/Engine/Renderer/Features/RayTracing/README.md). |
+| Shader-table mapping | `RayTracingShaderTablePlan` owns the shared Surface record order, checked instance/geometry indexing, invalidation, and bounded metrics |
+| Image providers | Renderer-owned provider stack with NVIDIA Streamline/DLSS adapters and non-provider presentation paths |
+| Debug views | 16 final/material/GBuffer/lighting/scene modes; current common presentation can alter diagnostic values. [Feature dossier](Modules/Engine/Renderer/Features/DebugViews/README.md). |
+| Diagnostics, products, and capture | bounded Renderer/RHI snapshots plus viewport-product publication and capture; generated evidence is not implementation authority. [Feature dossier](Modules/Engine/Renderer/Features/ViewportAndDiagnostics/DiagnosticsProductsAndCapture.md). |
+
+The native D3D12/Vulkan ray-tracing pipeline, shader-table, and trace-command source paths are present, as are reachable GBuffer and shadow compositions. Current documentation does not claim paired native execution, output parity, reload/retirement behavior, or performance proof; those remain open in the [Shader System feature acceptance contract](CrossModule/ShaderSystem/Acceptance.md).
+
+## RHI Map
+
+`RenderHardwareInterface` exposes focused services for resources, descriptors, pipelines, uploads, ray tracing, interop, capture, diagnostics, and presentation. `RenderDeviceServices` owns backend creation, command recording/submission, queue waits/tokens, resize, frame begin/submit, and frames-in-flight.
+
+Common RHI code owns backend-neutral contracts and validation, including shader map/library records, shader parameters, graphics/ray-tracing descriptors, and checked shader-table packing. Native object creation and command emission remain inside `Private/D3D12` or `Private/Vulkan`.
+
+Current ray-tracing vocabulary distinguishes acceleration-structure, inline-query, and native-pipeline capabilities. Public contracts include classic and partitioned TLAS, ray-tracing pipeline composition descriptors, shader tables, and `TraceRays`; backend-private implementations lower them to D3D12 state objects/dispatch tables or Vulkan ray-tracing pipelines/group handles/SBT regions.
+
+## Shader Source, Cook, And Runtime Flow
+
+```text
+virtual /Engine or /Project shader path
+        |
+typed GlobalShader registration + Parameters
+        |
+ShaderCompiler catalog and immutable compile jobs
+        |
+DXC or Slang -> DXIL/SPIR-V + reflection
+        |
+transactional GlobalShaderMap.smap
+              + CookedShaderLibrary.slib
+              + dependency manifest
+        |
+RenderPassRuntimeCache generation
+        |
+typed compute / graphics / ray-tracing materialization
+        |
+FrameGraph Draw / Dispatch / TraceRays
+```
+
+`Engine/Renderer/ShaderRegistrations` contains 32 typed shader registrations in the current source tree. Product source registrations use vertex, pixel, compute, ray-generation, miss, closest-hit, and any-hit stages. Geometry, hull, domain, intersection, and callable remain schema/compiler vocabulary without a current Renderer product registration.
+
+The ShaderCompiler default selection cooks the catalog; `--shader-id` selects one registered shader and repeatable `--changed` paths select affected types through the persisted dependency manifest. Default targets are DXIL SM 6.6 and SPIR-V 1.6. Every selected job compiles, while identical jobs within one operation share a producer/result; no persistent compiler-result cache is retained.
+
+The old authored shader-package identity, package registry, and `.sparkshader` runtime path have been replaced by the generated global shader map and content-addressed code library. Runtime generation replacement validates before activation and retires old runtime objects by submitted-queue state.
+
+## Content And Level Flow
+
+```text
+project level/catalog + external or repository source asset
+        |
+SourceImporters (glTF/GLB/FBX production routes)
+        |
+Scene/Mesh/Material/Texture cookers via AssetCooker
+        |
+cooked-only GameFramework loaders
+        |
+LevelSession -> SceneLoadTaskGraph -> GameWorld
+```
+
+`Projects/Showcase/Levels.catalog` is the single Showcase level/acquisition catalog. At the verified revision it contains 16 level records:
+
+- six asset-pack-free game levels: `Empty`, `Sponza`, `ABeautifulGame`, `DamagedHelmet`, `DiffuseTransmissionPlant`, and `CesiumMan`;
+- seven external-pack Game-supported levels: `ModernSponza`, `ModernSponzaCandles`, `ModernSponzaKnight`, `BistroExterior`, `BistroInteriorWine`, `LPSHead`, and `CornellBox`;
+- three source-readiness records that are not Game-supported: `JungleRuins`, `SanMiguelHigh`, and `SanMiguelLow`.
+
+The default game level is `Empty`; `SPARKLE_STARTUP_LEVEL` selects another catalog level. If catalog loading fails or `Empty` is absent, `LevelRegistry` creates the built-in empty fallback. External assets remain outside normal source history and are acquired through catalog metadata. Game support is distinct from download support and from the user's selected active set.
+
+The catalog also records disabled future Modern Sponza add-ons for Ivy, Trees, Flood, and Volumetric Explosion with explicit implementation blockers. Their presence in metadata is not Game support.
+
+## Tools And Launcher Map
+
+| Tool area | Responsibility |
+| --- | --- |
+| `Tools/Launcher/SparkleLauncher` | GUI/workflow shell plus reusable core operations for level sync/run, build generation/compilation, cook, clean, dependency sync, settings, and toolchain detection |
+| `Tools/Shaders/ShaderCompiler` | typed catalog validation, compile planning/execution, reflection, map/library publication, changed-source selection, inspection, and optional analysis artifacts |
+| `Tools/Shaders/ShaderContracts` | narrow shared shader-contract catalog surface used by the tool build |
+| `Tools/Import/SourceImporters` | canonical source-scene import and normalization |
+| `Tools/Cooking/*Cooker` | texture, mesh, material, scene, and project cook products |
+| `Tools/Support/ToolConsoleSupport` | shared host-tool console support |
+
+The Launcher resolves its repository from an explicit `--root` request, the current directory, or executable ancestry; its deployable artifact does not carry a build-machine absolute-path marker. `LauncherMainWindow` remains the lifecycle and composition shell; `LauncherWorkflowPanel` owns workflow-catalog navigation and selection state, while `LauncherActivityPanel` owns the in-memory run list and output presentation. Quick Start projects the level catalog and resolves a requested level/run mode through existing typed sync, build, cook, and final-run capabilities. The Build, Cook, Sync, and Clean pages project those same backend operations; they do not own parallel implementations.
+
+Generated-location ownership is similarly explicit: Core's public
+`ProductUserStatePaths` value is the engine/product boundary for per-user
+mutable state, and Core's `WorkspaceOutputPaths` is the shared boundary for
+repository-generated outputs. Launcher's private `LauncherStatePaths`
+collaboration owns launcher-specific leaf paths. Their concrete directory
+grammar and platform/repository identity mechanics remain private
+implementations; consumers do not reconstruct those paths from repository or
+user-state roots.
+
+`ShowcaseEditor` links the editor host and `ShowcaseGame` links the game host. Distribution packaging remains manual and outside Launcher ownership.
+
+## Validation And Evidence Boundaries
+
+- `architecture_boundary_check` is mandatory when Renderer/RHI boundaries change.
+- `code_style_check` checks tracked owned C++, headers, HLSL, and HLSLI with clang-format 22.1.3 plus authored structural rules, and verifies the `.clang-tidy` configuration. It currently passes across the tracked owned source set; it does not claim that clang-tidy has run cleanly over every translation unit.
+- `ShaderCompilerCliValidation` is a focused custom target owned by the ShaderCompiler build.
+- No active CTest registration is present in the verified source tree; do not infer an automated suite from local generated build artifacts.
+- Generated build, cooked, log, capture, and validation artifacts are evidence only when their revision, configuration, command, hardware/runtime provenance, and result are recorded.
+- A responsive process, source reachability, successful configure, or one backend does not prove visual correctness, parity, performance, or shipment.
+
+The repository-wide documentation reconciliation remains a static source/build-configuration audit. The 2026-08-30 Launcher ownership update adds a focused `SparkleLauncher` `DevelopmentEditor` target-build result, and the code-style migration adds a passing C/C++ format check. Shader validation is blocked before migration, so neither update adds shader-cook, runtime, capture, performance, or whole-repository build evidence.
+
+## Primary Source Routes
+
+- `CMakeLists.txt`, `Engine/CMakeLists.txt`, and each module/tool `CMakeLists.txt`
+- `CMake/ArchitectureBoundaryCheck.cmake`
+- `CMake/CodeStyle.ps1`
+- `Engine/Application/Public/GameApplication.h`
+- `Engine/GameFramework/Public/World/GameWorld.h`
+- `Engine/GameFramework/Public/Rendering/RenderFrameSubmission.h`
+- `Engine/GameFramework/Private/World/Extraction/RenderFrameSubmissionExtractor.*`
+- `Engine/Renderer/Public/Renderer.h`
+- `Engine/Renderer/Private/Concurrency/Coordinator/RenderCoordinator.*`
+- `Engine/Renderer/Private/Host/RendererHost.*`
+- `Engine/Renderer/Private/Frame/FramePipeline.*`
+- `Engine/Renderer/Private/Frame/Graph/BuildRenderFrameGraph.*`
+- `Engine/Renderer/Private/Frame/Graph/ExecuteRenderFrameGraph.cpp`
+- `Engine/Renderer/Private/Scene/RayTracing/RayTracingShaderTablePlan.*`
+- `Engine/Renderer/Private/Pipeline/RenderPassRuntimeCache.*`
+- `Engine/RHI/Public/Device/RenderHardwareInterface.h`
+- `Engine/RHI/Public/Device/RenderDeviceServices.h`
+- `Engine/RHI/Public/RayTracing`
+- `Tools/Shaders/ShaderCompiler/Private/Cooking`
+- `Tools/Launcher/SparkleLauncher/Private`
+- `Projects/Showcase/Levels.catalog`

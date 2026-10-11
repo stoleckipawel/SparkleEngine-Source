@@ -1,0 +1,114 @@
+#include "PCH.h"
+
+#include "D3D12/Memory/D3D12GpuAllocation.h"
+#include "D3D12/Memory/D3D12GpuMemoryAllocator.h"
+
+#include <D3D12MemAlloc.h>
+
+D3D12GpuAllocationRecord::~D3D12GpuAllocationRecord() noexcept
+{
+	if (ParentHeap != nullptr)
+	{
+		if (ParentHeap->AliasingResourceCount > 0)
+		{
+			--ParentHeap->AliasingResourceCount;
+		}
+		ParentHeap = nullptr;
+	}
+
+	if (Owner != nullptr)
+	{
+		Owner->UnregisterAllocationRecord(*this);
+		Owner = nullptr;
+	}
+
+	if (IsMapped && Resource != nullptr)
+	{
+		Resource->Unmap(0, nullptr);
+		IsMapped = false;
+		CpuMappedAddress = nullptr;
+	}
+
+	Resource.Reset();
+	if (Allocation != nullptr)
+	{
+		Allocation->Release();
+		Allocation = nullptr;
+	}
+}
+
+D3D12GpuHeapRecord::~D3D12GpuHeapRecord() noexcept
+{
+	if (Owner != nullptr)
+	{
+		Owner->UnregisterHeapRecord(*this);
+		Owner = nullptr;
+	}
+
+	NativeHeap.Reset();
+	if (Allocation != nullptr)
+	{
+		Allocation->Release();
+		Allocation = nullptr;
+	}
+	if (Pool != nullptr)
+	{
+		Pool->Release();
+		Pool = nullptr;
+	}
+}
+
+RhiOwnedResourceHandle MakeD3D12OwnedResourceHandle(std::unique_ptr<D3D12GpuAllocationRecord> record) noexcept
+{
+	return RhiOwnedResourceHandle{record.release()};
+}
+
+std::unique_ptr<D3D12GpuAllocationRecord> TakeD3D12OwnedResourceHandle(RhiOwnedResourceHandle handle) noexcept
+{
+	return std::unique_ptr<D3D12GpuAllocationRecord>(static_cast<D3D12GpuAllocationRecord*>(handle.Value));
+}
+
+D3D12GpuAllocationRecord* GetD3D12GpuAllocationRecord(RhiOwnedResourceHandle handle) noexcept
+{
+	return static_cast<D3D12GpuAllocationRecord*>(handle.Value);
+}
+
+ID3D12Resource* GetD3D12Resource(RhiOwnedResourceHandle handle) noexcept
+{
+	D3D12GpuAllocationRecord* const record = GetD3D12GpuAllocationRecord(handle);
+	return record != nullptr ? record->Resource.Get() : nullptr;
+}
+
+void SetD3D12AllocationRecordDebugName(D3D12GpuAllocationRecord& record, std::wstring_view debugName) noexcept
+{
+	record.DebugName = debugName;
+	if (record.Resource != nullptr)
+	{
+		record.Resource->SetName(record.DebugName.c_str());
+	}
+	if (record.Allocation != nullptr)
+	{
+		record.Allocation->SetName(record.DebugName.c_str());
+	}
+}
+
+RhiOwnedMemoryBlockHandle MakeD3D12OwnedMemoryBlockHandle(std::unique_ptr<D3D12GpuHeapRecord> record) noexcept
+{
+	return RhiOwnedMemoryBlockHandle{record.release()};
+}
+
+std::unique_ptr<D3D12GpuHeapRecord> TakeD3D12OwnedMemoryBlockHandle(RhiOwnedMemoryBlockHandle handle) noexcept
+{
+	return std::unique_ptr<D3D12GpuHeapRecord>(static_cast<D3D12GpuHeapRecord*>(handle.Value));
+}
+
+D3D12GpuHeapRecord* GetD3D12GpuHeapRecord(RhiOwnedMemoryBlockHandle handle) noexcept
+{
+	return static_cast<D3D12GpuHeapRecord*>(handle.Value);
+}
+
+ID3D12Heap* GetD3D12Heap(RhiOwnedMemoryBlockHandle handle) noexcept
+{
+	D3D12GpuHeapRecord* const record = GetD3D12GpuHeapRecord(handle);
+	return record != nullptr ? record->NativeHeap.Get() : nullptr;
+}

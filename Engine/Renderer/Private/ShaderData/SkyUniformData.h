@@ -1,0 +1,22 @@
+#pragma once
+
+#include "Scene/Preparation/RenderSkyData.h"
+
+#include <DirectXMath.h>
+
+#include <cstdint>
+#include <type_traits>
+
+struct SkyUniformData
+{
+	DirectX::XMFLOAT3 Color{1.0f, 1.0f, 1.0f};
+	float Brightness = 1.0f;
+	std::uint32_t Enabled = 1u;
+	DirectX::XMUINT3 Padding{};
+};
+
+static_assert(std::is_standard_layout_v<SkyUniformData>);
+static_assert(std::is_trivially_copyable_v<SkyUniformData>);
+static_assert(sizeof(SkyUniformData) == 32);
+
+SkyUniformData MakeSkyUniformData(const RenderSkyData& sky) noexcept;

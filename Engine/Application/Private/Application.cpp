@@ -1,0 +1,45 @@
+#include "PCH.h"
+
+#include "Application.h"
+
+#include "ApplicationCommandLineCVars.h"
+#include "Concurrency/ConcurrencyLaunchCVars.h"
+#include "Concurrency/TaskRuntimeCVars.h"
+#include "Core/Public/Environment/EnvironmentVariables.h"
+#include "RenderingSettings/EngineRenderingSettingsPersistence.h"
+
+#include <cstdlib>
+
+void Application::ConfigureProcessFromCommandLine() noexcept
+{
+	if (Environment::GetFlag("SPARKLE_SUPPRESS_CRASH_DIALOGS"))
+	{
+		SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
+		_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+	}
+
+	ConcurrencyLaunchCVars::Register();
+	TaskRuntimeCVars::Register();
+	EngineRenderingSettingsPersistence::Apply();
+	ApplicationCommandLineCVars::Apply();
+}
+
+void Application::SaveRenderingSettings(const EngineRenderingSettingsState& settings)
+{
+	EngineRenderingSettingsPersistence::Write(settings);
+}
+
+void Application::Run()
+{
+	Initialize();
+
+	for (;;)
+	{
+		if (!Tick())
+		{
+			break;
+		}
+	}
+
+	Shutdown();
+}

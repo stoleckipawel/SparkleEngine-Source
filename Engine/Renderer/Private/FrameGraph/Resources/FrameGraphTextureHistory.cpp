@@ -1,0 +1,218 @@
+#include "PCH.h"
+#include "FrameGraph/FrameGraph.h"
+
+#include "FrameGraph/ResourceUsage.h"
+#include "RHI/Public/Device/RenderHardwareInterface.h"
+#include "RHI/Public/Memory/RhiMemoryTypes.h"
+#include "RHI/Public/Resources/RhiResourceDesc.h"
+#include "RHI/Public/Resources/RhiResourceService.h"
+
+#include <algorithm>
+#include <string>
+
+static bool UsesHandle(const PassResourceDeclaration& declaration, FrameGraphTextureHandle handle) noexcept
+{
+	return declaration.handle == handle.GetResourceHandle();
+}
+
+static std::wstring BuildHistoryResourceName(std::string_view name)
+{
+	std::wstring result(name.begin(), name.end());
+	result.append(L"History");
+	return result;
+}
+
+FrameGraphTextureHistory FrameGraph::CreateTextureHistory(const FrameGraphTextureDesc& desc) noexcept
+{
+	for (const TextureHistoryRecord& history : m_textureHistories)
+	{
+		if (history.desc.name == desc.name)
+		{
+			assert(
+			    history.desc.width == desc.width && history.desc.height == desc.height && history.desc.format == desc.format && history.desc.kind == desc.kind
+			    && history.desc.sampleCount == desc.sampleCount);
+
+			return history.handles;
+		}
+	}
+	FrameGraphTextureDesc previousDesc = desc;
+	previousDesc.name = "Previous" + desc.name + "History";
+	FrameGraphTextureDesc currentDesc = desc;
+	currentDesc.name = "Current" + desc.name + "History";
+
+	const FrameGraphTextureHistory handles{.Previous = ReservePersistentTexture(previousDesc, ResourceState::Undefined), .Current = ReservePersistentTexture(currentDesc, ResourceState::Undefined)};
+	m_textureHistories.push_back(TextureHistoryRecord{.handles = handles, .desc = desc});
+	return handles;
+}
+
+void FrameGraph::InvalidateTextureHistory(FrameGraphTextureHistory history) noexcept
+{
+	const auto it = std::find_if(
+	    m_textureHistories.begin(),
+	    m_textureHistories.end(),
+	    [history](const TextureHistoryRecord& record) { return record.handles.Previous == history.Previous && record.handles.Current == history.Current; });
+
+	if (it == m_textureHistories.end())
+	{
+		return;
+	}
+
+	++it->generation;
+	if (it->generation == 0u)
+	{
+		++it->generation;
+	}
+}
+
+void FrameGraph::PrepareTextureHistories(const FrameGraphPlan& plan)
+{
+	RhiResourceService& resourceService = m_renderHardwareInterface->GetResourceService();
+	const std::uint32_t historyResourceCount = (std::max) (2u, m_renderHardwareInterface->GetCapabilities().Presentation.MaximumFramesInFlight);
+	for (TextureHistoryRecord& history : m_textureHistories)
+	{
+		history.usedThisFrame = false;
+		history.writtenThisFrame = false;
+		bool requiresRenderTarget = false;
+		bool requiresDepthStencil = history.desc.kind == FrameGraphTextureKind::DepthStencil;
+		bool requiresUnorderedAccess = false;
+		for (const FrameGraphPassNode& pass : plan.passes)
+		{
+			for (const PassResourceDeclaration& declaration : pass.declarations)
+			{
+				const bool usesPrevious = UsesHandle(declaration, history.handles.Previous);
+				const bool usesCurrent = UsesHandle(declaration, history.handles.Current);
+				if (!usesPrevious && !usesCurrent)
+				{
+					continue;
+				}
+
+				history.usedThisFrame = true;
+				history.writtenThisFrame = history.writtenThisFrame || (usesCurrent && WritesToUsage(declaration.usage));
+				requiresRenderTarget = requiresRenderTarget || declaration.usage == ResourceUsage::RenderTarget;
+				requiresDepthStencil = requiresDepthStencil || declaration.usage == ResourceUsage::DepthWrite;
+				requiresUnorderedAccess = requiresUnorderedAccess || declaration.usage == ResourceUsage::UnorderedAccess;
+			}
+		}
+
+		if (!history.usedThisFrame)
+		{
+			continue;
+		}
+
+		const bool requiresRecreation = (requiresRenderTarget && !history.allowRenderTarget) || (requiresDepthStencil && !history.allowDepthStencil)
+		    || (requiresUnorderedAccess && !history.allowUnorderedAccess);
+
+		if (requiresRecreation && history.resources.front())
+		{
+			ReleaseExternalResourceViews(history.handles.Previous.GetResourceHandle());
+			ReleaseExternalResourceViews(history.handles.Current.GetResourceHandle());
+			for (RhiOwnedResourceHandle& resource : history.resources)
+			{
+				if (resource)
+				{
+					resourceService.ReleaseOwnedResource(resource);
+					resource = {};
+				}
+			}
+			history.states.fill(ResourceState::Undefined);
+			history.generations.fill(0u);
+			++history.generation;
+			if (history.generation == 0u)
+			{
+				++history.generation;
+			}
+		}
+		history.allowRenderTarget = history.allowRenderTarget || requiresRenderTarget;
+		history.allowDepthStencil = history.allowDepthStencil || requiresDepthStencil;
+		history.allowUnorderedAccess = history.allowUnorderedAccess || requiresUnorderedAccess;
+
+		const FrameGraphTextureDesc& resolvedDesc = m_resourceRegistry.GetMetadata(history.handles.Current.GetResourceHandle()).textureDesc;
+		for (std::uint32_t historyIndex = 0; historyIndex < historyResourceCount; ++historyIndex)
+		{
+			RhiOwnedResourceHandle& resource = history.resources[historyIndex];
+			if (!resource)
+			{
+				resource = resourceService.CreateTextureResource(
+				    RhiTextureResourceDesc{
+				        .Width = resolvedDesc.width,
+				        .Height = resolvedDesc.height,
+				        .Format = resolvedDesc.format,
+				        .MipLevels = 1u,
+				        .SampleCount = resolvedDesc.sampleCount,
+				        .AllowRenderTarget = history.allowRenderTarget,
+				        .AllowDepthStencil = history.allowDepthStencil,
+				        .AllowUnorderedAccess = history.allowUnorderedAccess},
+				    ResourceState::Undefined,
+				    RhiMemoryCategory::Texture,
+				    RhiMemoryResidencyClass::DeviceLocal,
+				    BuildHistoryResourceName(history.desc.name));
+			}
+		}
+
+		history.currentIndex = static_cast<std::uint32_t>(m_historyFrameIndex % historyResourceCount);
+		history.previousIndex = (history.currentIndex + historyResourceCount - 1u) % historyResourceCount;
+		const ResourceState previousState = history.states[history.previousIndex];
+		const ResourceState currentState = history.states[history.currentIndex];
+		m_resourceRegistry.SetBoundaryStates(history.handles.Previous.GetResourceHandle(), previousState, ResourceState::ShaderResource);
+		m_resourceRegistry.SetBoundaryStates(history.handles.Current.GetResourceHandle(), currentState, ResourceState::ShaderResource);
+		BindPersistentTexture(history.handles.Previous, history.resources[history.previousIndex], previousState);
+		BindPersistentTexture(history.handles.Current, history.resources[history.currentIndex], currentState);
+		m_resourceRegistry.SetExternalContentsProduced(history.handles.Previous.GetResourceHandle(), history.generations[history.previousIndex] == history.generation);
+		m_resourceRegistry.SetExternalContentsProduced(history.handles.Current.GetResourceHandle(), history.generations[history.currentIndex] == history.generation);
+	}
+}
+
+void FrameGraph::CommitTextureHistories() const noexcept
+{
+	for (TextureHistoryRecord& history : m_textureHistories)
+	{
+		if (!history.usedThisFrame)
+		{
+			continue;
+		}
+
+		history.states[history.previousIndex] = ResourceState::ShaderResource;
+		history.states[history.currentIndex] = ResourceState::ShaderResource;
+		if (history.writtenThisFrame)
+		{
+			history.generations[history.currentIndex] = history.generation;
+		}
+	}
+	++m_historyFrameIndex;
+}
+
+void FrameGraph::ReleaseTextureHistories() noexcept
+{
+	if (m_renderHardwareInterface == nullptr)
+	{
+		return;
+	}
+
+	RhiResourceService& resourceService = m_renderHardwareInterface->GetResourceService();
+	for (TextureHistoryRecord& history : m_textureHistories)
+	{
+		for (RhiOwnedResourceHandle& resource : history.resources)
+		{
+			if (resource)
+			{
+				resourceService.ReleaseOwnedResource(resource);
+				resource = {};
+			}
+		}
+	}
+	m_textureHistories.clear();
+}
+
+bool FrameGraph::IsTextureHistoryValid(FrameGraphTextureHistory handles) const noexcept
+{
+	const std::uint32_t count = (std::max) (2u, m_renderHardwareInterface->GetCapabilities().Presentation.MaximumFramesInFlight);
+	const std::uint32_t previousIndex = static_cast<std::uint32_t>((m_historyFrameIndex + count - 1u) % count);
+	for (const TextureHistoryRecord& history : m_textureHistories)
+	{
+		if (history.handles.Previous == handles.Previous && history.handles.Current == handles.Current)
+		{
+			return history.resources[previousIndex] && history.generations[previousIndex] == history.generation;
+		}
+	}
+	return false;
+}

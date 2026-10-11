@@ -1,0 +1,35 @@
+#pragma once
+
+#include "LauncherOperationRequest.h"
+#include "SparkleLauncher/OperationModel.h"
+#include "SparkleLauncher/ProcessRunner.h"
+
+#include <functional>
+#include <memory>
+#include <string>
+#include <string_view>
+
+namespace SparkleLauncher
+{
+	class LauncherOperationService final
+	{
+	public:
+		using ProcessRunnerFactory = std::function<std::unique_ptr<IProcessRunner>()>;
+
+		using OutputCallback = std::function<void(std::string_view)>;
+		using CompletionCallback = std::function<void(OperationRecord)>;
+
+		explicit LauncherOperationService(ProcessRunnerFactory processRunnerFactory);
+		~LauncherOperationService();
+
+		LauncherOperationService(const LauncherOperationService&) = delete;
+		LauncherOperationService& operator=(const LauncherOperationService&) = delete;
+
+		void Launch(LauncherOperationCategory category, LauncherOperationRequest request, std::string title, OutputCallback outputCallback, CompletionCallback completionCallback);
+		bool Cancel(std::string_view runId) noexcept;
+
+	private:
+		struct Implementation;
+		std::unique_ptr<Implementation> m_implementation;
+	};
+}

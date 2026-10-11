@@ -1,0 +1,117 @@
+# SparkleEngine formatting profile.
+# Requires clang-format 22.1.3. Run with --Werror so configuration warnings fail.
+# Applies to owned C++ and, through the shader-subtree override, owned HLSL/HLSLI.
+
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++20
+
+# Width and indentation.
+ColumnLimit: 200
+IndentWidth: 4
+TabWidth: 4
+UseTab: ForIndentation
+ContinuationIndentWidth: 4
+AccessModifierOffset: -4
+EmptyLineBeforeAccessModifier: LogicalBlock
+EmptyLineAfterAccessModifier: Never
+NamespaceIndentation: All
+IndentCaseLabels: true
+IndentCaseBlocks: false
+IndentPPDirectives: BeforeHash
+PPIndentWidth: 2
+
+# Braces and compact forms.
+BreakBeforeBraces: Allman
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: Inline
+AllowShortLoopsOnASingleLine: false
+AllowShortNamespacesOnASingleLine: false
+InsertBraces: false
+RemoveBracesLLVM: false
+
+# Calls, declarations, initializers, and expressions.
+AlignAfterOpenBracket: false
+BreakAfterOpenBracketBracedList: true
+BreakAfterOpenBracketFunction: true
+BreakBeforeCloseBracketBracedList: false
+BreakBeforeCloseBracketFunction: false
+BinPackArguments: false
+BinPackParameters: OnePerLine
+BinPackLongBracedList: false
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+PackConstructorInitializers: Never
+BreakConstructorInitializers: AfterColon
+ConstructorInitializerIndentWidth: 4
+BreakInheritanceList: BeforeColon
+BreakAfterReturnType: None
+PenaltyReturnTypeOnItsOwnLine: 1000
+BreakBeforeBinaryOperators: NonAssignment
+# Keep assignment and call heads together; wrap arguments after Function(.
+PenaltyBreakAssignment: 1000000
+PenaltyBreakBeforeFirstCallParameter: 0
+PenaltyBreakOpenParenthesis: 0
+BreakBeforeTernaryOperators: true
+AlignOperands: DontAlign
+Cpp11BracedListStyle: AlignFirstComment
+LambdaBodyIndentation: Signature
+BreakAfterAttributes: Leave
+
+# C++20 templates, concepts, and requires clauses.
+BreakTemplateDeclarations: No
+BreakBeforeConceptDeclarations: Never
+RequiresClausePosition: WithPreceding
+IndentRequiresClause: true
+
+# Diff-stable alignment.
+AlignConsecutiveAssignments:
+  Enabled: false
+AlignConsecutiveDeclarations:
+  Enabled: false
+AlignConsecutiveMacros:
+  Enabled: false
+AlignEscapedNewlines: Left
+AlignTrailingComments:
+  Kind: Never
+SpacesBeforeTrailingComments: 1
+
+# Pointers, references, qualifiers, and delimiters.
+PointerAlignment: Left
+ReferenceAlignment: Left
+DerivePointerAlignment: false
+QualifierAlignment: Leave
+SpaceAfterCStyleCast: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeAssignmentOperators: true
+SpacesInAngles: Never
+SpacesInCStyleCastParentheses: false
+SpacesInContainerLiterals: false
+SpacesInParens: Never
+SpacesInSquareBrackets: false
+
+# Includes, using declarations, comments, and vertical space.
+SortIncludes:
+  Enabled: false
+IncludeBlocks: Preserve
+SortUsingDeclarations: Never
+ReflowComments: IndentOnly
+# Prevent additions. Existing namespace-end comments require the migration check.
+FixNamespaceComments: false
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: false
+SeparateDefinitionBlocks: Always
+
+# Keep the formatter non-semantic and deterministic.
+SkipMacroDefinitionBody: false
+RemoveParentheses: Leave
+LineEnding: LF
+InsertNewlineAtEOF: true
+
+# Avoid wrapping authored prose and strings merely to satisfy the column limit.
+PenaltyBreakComment: 1000
+PenaltyBreakString: 1000

@@ -1,0 +1,51 @@
+#include "PCH.h"
+
+#include "Editor/Capture/ViewportCaptureSlot.h"
+
+#include "Renderer.h"
+
+#include <utility>
+
+ViewportCaptureAdmissionStatus ViewportCaptureSlot::Request(Renderer& renderer, ViewportCaptureRequest request)
+{
+	if (!IsSettled())
+	{
+		return ViewportCaptureAdmissionStatus::Full;
+	}
+	const ViewportCaptureAdmission admission = renderer.RequestViewportCapture(std::move(request));
+	m_capture = admission.Id;
+	return admission.Status;
+}
+
+void ViewportCaptureSlot::Update(Renderer& renderer)
+{
+	if (!m_capture)
+	{
+		return;
+	}
+	ViewportCaptureReadback readback;
+	if (!renderer.TryTakeViewportCapture(m_capture, readback))
+	{
+		return;
+	}
+	m_capture = {};
+	if (m_discard)
+	{
+		m_discard = false;
+		return;
+	}
+	m_readback = std::move(readback);
+}
+
+void ViewportCaptureSlot::Discard() noexcept
+{
+	m_readback.reset();
+	m_discard = static_cast<bool>(m_capture);
+}
+
+ViewportCaptureReadback ViewportCaptureSlot::TakeReadback()
+{
+	ViewportCaptureReadback readback = std::move(*m_readback);
+	m_readback.reset();
+	return readback;
+}

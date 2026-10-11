@@ -1,0 +1,56 @@
+#pragma once
+
+#include "FrameGraph/FrameGraphBufferHandle.h"
+#include "FrameGraph/FrameGraphAccelerationStructureHandle.h"
+#include "FrameGraph/FrameGraphTextureHandle.h"
+#include "FrameGraph/FrameGraphRasterPass.h"
+#include "RHI/Public/Descriptors/RhiDescriptorHandles.h"
+#include "RHI/Public/Resources/RhiResourceDesc.h"
+#include "RHI/Public/Resources/RhiResourceHandles.h"
+
+#include <span>
+
+class FrameGraph;
+class PassBinder;
+class RenderCommandContext;
+class RenderHardwareInterface;
+struct NativeTextureViewInfo;
+struct RhiNativeInteropRequest;
+
+class FrameGraphResourceCommands final
+{
+public:
+	explicit FrameGraphResourceCommands(const FrameGraph& frameGraph) noexcept;
+	void BeginRasterPass(RenderCommandContext& commandContext, const FrameGraphRasterPass& rasterPass) const noexcept;
+	void EndRasterPass(RenderCommandContext& commandContext) const noexcept;
+
+	void BindRenderTarget(
+	    RenderCommandContext& commandContext,
+	    FrameGraphTextureHandle renderTargetHandle,
+	    FrameGraphTextureHandle depthStencilHandle = FrameGraphTextureHandle::Invalid()) const noexcept;
+	void BindRenderTargets(
+	    RenderCommandContext& commandContext,
+	    std::span<const FrameGraphTextureHandle> renderTargetHandles,
+	    FrameGraphTextureHandle depthStencilHandle = FrameGraphTextureHandle::Invalid()) const noexcept;
+	void CopyTexture(RenderCommandContext& commandContext, FrameGraphTextureHandle destinationHandle, FrameGraphTextureHandle sourceHandle) const noexcept;
+	void CopyBuffer(RenderCommandContext& commandContext, FrameGraphBufferHandle destinationHandle, FrameGraphBufferHandle sourceHandle) const noexcept;
+	void ClearRenderTarget(RenderCommandContext& commandContext, FrameGraphTextureHandle handle) const noexcept;
+	void ClearDepthStencil(RenderCommandContext& commandContext, FrameGraphTextureHandle handle) const noexcept;
+	RhiResourceHandle ResolveResource(FrameGraphTextureHandle handle) const noexcept;
+	NativeTextureViewInfo ResolveNativeTextureView(FrameGraphTextureHandle handle, ResourceState state, const RhiNativeInteropRequest& request) const noexcept;
+	RhiGpuDescriptorHandle ResolveShaderResourceView(FrameGraphTextureHandle handle) const noexcept;
+	RhiGpuDescriptorHandle ResolveShaderResourceView(FrameGraphBufferHandle handle) const noexcept;
+	RhiGpuDescriptorHandle ResolveUnorderedAccessView(FrameGraphTextureHandle handle) const noexcept;
+	RhiGpuDescriptorHandle ResolveUnorderedAccessView(FrameGraphBufferHandle handle) const noexcept;
+	RhiResourceHandle ResolveAccelerationStructure(FrameGraphAccelerationStructureHandle handle) const noexcept;
+	void BindGlobalDescriptorState(RenderCommandContext& commandContext) const noexcept;
+
+private:
+	friend class PassBinder;
+	RenderHardwareInterface& GetRenderHardwareInterface() const noexcept;
+	RhiCpuDescriptorHandle ResolveRenderTargetView(FrameGraphResourceHandle handle) const noexcept;
+	RhiCpuDescriptorHandle ResolveDepthStencilView(FrameGraphResourceHandle handle) const noexcept;
+	RhiGpuDescriptorHandle ResolveUnorderedAccessView(FrameGraphResourceHandle handle) const noexcept;
+	void CopyResource(RenderCommandContext& commandContext, FrameGraphResourceHandle destinationHandle, FrameGraphResourceHandle sourceHandle) const noexcept;
+	const FrameGraph& m_frameGraph;
+};

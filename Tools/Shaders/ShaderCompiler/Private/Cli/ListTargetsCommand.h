@@ -1,0 +1,6 @@
+#pragma once
+
+#include <span>
+#include <string_view>
+
+int ListShaderTargets(std::span<const std::string_view> args);

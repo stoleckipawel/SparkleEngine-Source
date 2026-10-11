@@ -1,0 +1,72 @@
+#include "PCH.h"
+#include "Resources/History/FrameHistory.h"
+
+#include "FrameGraph/Builder/FrameGraphBuilder.h"
+#include "FrameGraph/FrameGraph.h"
+#include "FrameGraph/FrameGraphTextureDesc.h"
+#include "RHI/Public/Formats/PixelFormat.h"
+#include "Passes/Lighting/Restir/RestirLightingInvalidation.h"
+#include "Passes/Lighting/Direct/DirectLightingControls.h"
+#include "Passes/Lighting/Restir/Indirect/IndirectLightingControls.h"
+#include "Providers/RendererImageProviderStack.h"
+#include "Scene/Preparation/PreparedRenderScene.h"
+#include "View/RenderView.h"
+#include "View/RenderViewState.h"
+
+#include <string>
+
+static void InvalidateReservoir(FrameGraph& frameGraph, const FrameGraphReservoirHistoryHandles& history) noexcept
+{
+	frameGraph.InvalidateTextureHistory(history.Sample);
+	frameGraph.InvalidateTextureHistory(history.Weight);
+	frameGraph.InvalidateTextureHistory(history.Surface);
+}
+
+FrameHistoryResourceLayout DeclareFrameHistoryResources(FrameGraphBuilder& builder)
+{
+	return FrameHistoryResourceLayout{.Exposure = builder.CreateTextureHistory(FrameGraphTextureDesc::CreateColor("Exposure", 1u, 1u, PixelFormat::R32G32B32A32_Float))};
+}
+
+FrameGraphReservoirHistoryHandles DeclareLightingReservoirHistory(FrameGraphBuilder& builder, RenderViewportExtent renderExtent, std::string_view name)
+{
+	const auto declare = [&](std::string_view suffix, PixelFormat format)
+	{
+		return builder.CreateTextureHistory(FrameGraphTextureDesc::CreateColor(std::string(name) + std::string(suffix), renderExtent.Width, renderExtent.Height, format));
+	};
+
+	return FrameGraphReservoirHistoryHandles{
+	    .Sample = declare("Sample", PixelFormat::R32G32B32A32_Float),
+	    .Weight = declare("Weight", PixelFormat::R32G32B32A32_Float),
+	    .Surface = declare("Surface", PixelFormat::R16G16B16A16_Float)};
+}
+
+void InvalidateFrameHistory(FrameGraph& frameGraph, const FrameHistoryResourceLayout& history) noexcept
+{
+	frameGraph.InvalidateTextureHistory(history.Exposure);
+	InvalidateRestirLightingHistory(frameGraph, history);
+}
+
+void InvalidateRestirLightingHistory(FrameGraph& frameGraph, const FrameHistoryResourceLayout& history) noexcept
+{
+	InvalidateReservoir(frameGraph, history.DirectLightReservoir);
+	InvalidateReservoir(frameGraph, history.RestirIndirectReservoir);
+}
+
+void UpdateFrameHistory(
+    FrameGraph& frameGraph,
+    const FrameHistoryResourceLayout& history,
+    const PreparedRenderScene& preparedScene,
+    const RenderView& view,
+    RenderViewState& viewState,
+    RendererImageProviderStack& imageProviders)
+{
+	if ((IsDirectLightingAdmitted() || IsIndirectLightingAdmitted()) && viewState.UpdateRestirLightingHistory(BuildRestirLightingHistoryInvalidationHash(preparedScene)))
+	{
+		InvalidateRestirLightingHistory(frameGraph, history);
+		imageProviders.ResetHistory();
+	}
+	if (view.temporalUniform.HistoryValid == 0u)
+	{
+		InvalidateFrameHistory(frameGraph, history);
+	}
+}

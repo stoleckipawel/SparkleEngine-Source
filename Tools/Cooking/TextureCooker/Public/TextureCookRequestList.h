@@ -1,0 +1,95 @@
+﻿#pragma once
+
+#include "Core/Public/Assets/TextureGroup.h"
+#include "Core/Public/Assets/TextureProperties.h"
+
+#include <cstdint>
+#include <cstddef>
+#include <filesystem>
+#include <map>
+#include <string>
+#include <vector>
+
+typedef std::uint64_t TextureAssetId;
+
+inline constexpr TextureAssetId InvalidTextureAssetId = 0;
+
+enum class TextureMipPolicy : std::uint8_t
+{
+	Generate = 0,
+	PreserveExisting = 1,
+	NoMips = 2,
+};
+
+enum class TextureMipFilter : std::uint8_t
+{
+	Regular = 0,
+	Kaiser = 1,
+	NormalAware = 2,
+	Angular = 3,
+};
+
+enum class TextureColorProcessingPolicy : std::uint8_t
+{
+	Linear = 0,
+	SrgbLinearize = 1,
+};
+
+struct TextureCookPolicy final
+{
+	TextureColorSpace colorSpace = TextureColorSpace::Linear;
+	TextureMipPolicy mipPolicy = TextureMipPolicy::Generate;
+	TextureMipFilter mipFilter = TextureMipFilter::Regular;
+	TextureColorProcessingPolicy colorProcessingPolicy = TextureColorProcessingPolicy::Linear;
+	TextureGroup textureGroup = TextureGroup::Default;
+	TextureDimension dimension = TextureDimension::Texture2D;
+	TextureChannelMask channelMask = TextureChannelMask::Rgba;
+
+	bool IsSrgb() const noexcept { return colorSpace == TextureColorSpace::Srgb; }
+
+	bool IsCube() const noexcept { return dimension == TextureDimension::TextureCube; }
+
+	bool operator==(const TextureCookPolicy&) const noexcept = default;
+};
+
+struct TextureCookRequest final
+{
+	TextureAssetId assetId = InvalidTextureAssetId;
+	std::filesystem::path sourcePath;
+	std::filesystem::path outputPath;
+	TextureCookPolicy policy;
+
+	bool IsSrgb() const noexcept { return policy.IsSrgb(); }
+
+	bool IsCube() const noexcept { return policy.IsCube(); }
+
+	bool operator==(const TextureCookRequest&) const noexcept = default;
+};
+
+class TextureCookRequestSet final
+{
+public:
+	void Clear() noexcept;
+	void Add(const TextureCookRequest& request);
+	std::vector<TextureCookRequest> ReleaseRequests() noexcept;
+
+	const std::vector<TextureCookRequest>& Requests() const noexcept { return m_requests; }
+
+private:
+	std::map<TextureAssetId, std::size_t> m_requestIndices;
+	std::vector<TextureCookRequest> m_requests;
+};
+
+void ValidateTextureCookRequest(const TextureCookRequest& request);
+
+const char* GetTextureColorSpaceName(TextureColorSpace colorSpace) noexcept;
+const char* GetTextureMipPolicyName(TextureMipPolicy mipPolicy) noexcept;
+const char* GetTextureMipFilterName(TextureMipFilter mipFilter) noexcept;
+const char* GetTextureColorProcessingPolicyName(TextureColorProcessingPolicy colorProcessingPolicy) noexcept;
+const char* GetTextureGroupName(TextureGroup textureGroup) noexcept;
+const char* GetTextureDimensionName(TextureDimension dimension) noexcept;
+const char* GetTextureChannelMaskName(TextureChannelMask channelMask) noexcept;
+
+void WriteTextureCookRequestList(const std::filesystem::path& outputPath, const std::vector<TextureCookRequest>& requests);
+
+std::vector<TextureCookRequest> LoadTextureCookRequestList(const std::filesystem::path& inputPath);

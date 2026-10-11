@@ -1,0 +1,24 @@
+#ifndef SPARKLE_LIGHTING_SKY_HLSLI
+#define SPARKLE_LIGHTING_SKY_HLSLI
+
+#include "/Engine/Lighting/SkyUniform.hlsli"
+
+float2 ComputeSkyUv(float3 worldDirection)
+{
+	const float3 direction = normalize(worldDirection);
+	const float clampedY = clamp(direction.y, -1.0f, 1.0f);
+	const float u = atan2(direction.z, direction.x) * 0.15915494309189535f;
+	const float v = acos(clampedY) * 0.3183098861837907f;
+	return float2(frac(u), clamp(v, 0.0f, 1.0f));
+}
+
+float3 SampleSkyRadiance(Texture2D skyTexture, SamplerState skySampler, float3 worldDirection)
+{
+	if (SkyEnabled == 0u)
+	{
+		return 0.0f.xxx;
+	}
+	return skyTexture.SampleLevel(skySampler, ComputeSkyUv(worldDirection), 0.0f).rgb * SkyColor * SkyBrightness;
+}
+
+#endif
