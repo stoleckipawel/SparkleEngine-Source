@@ -34,6 +34,8 @@ Selected source and cooked content live under `%LOCALAPPDATA%/SparkleEngine/Cont
 - Retain the selected Cesium/plant/chess copyright, attribution and logo notices; retain LPS Head's publisher/conversion notice. Retain Poly Haven CC0 environment provenance and Font Awesome's font license. Package copies must preserve notices for source and cooked derivatives.
 - Public release source is a reviewed exported archive from the exact candidate. `.gitattributes` excludes unqualified Sponza bytes, the excluded DamagedHelmet payload and development thumbnails without reviewed export receipts; new acquisition recipes/notices must be committed and present before export acceptance. Raw repository clones/history are a separate distribution surface, not certified by `export-ignore`.
 
+The owner-approved distribution split is [SparkleEngine-Source](https://github.com/stoleckipawel/SparkleEngine-Source) for reviewed public source and the original SparkleEngine repository privately for retained development history. Publish future source changes through the reviewed export path; never push private history into the public repository. The private repository's visibility is not a retrospective asset grant. Keep source-acquisition recipes, all approved map definitions and production features in the public source; excludes must affect unqualified payloads/generated files, not capabilities.
+
 ## Supply Chain And Signing
 
 | Input family | Distribution decision / proof still required |
